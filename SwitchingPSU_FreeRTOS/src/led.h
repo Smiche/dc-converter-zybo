@@ -8,3 +8,4 @@ enum led_status {
 };
 
 void set_led(int led_mask, enum led_status status);
+void led_pwm(int led_pos, double duty_cycle);
