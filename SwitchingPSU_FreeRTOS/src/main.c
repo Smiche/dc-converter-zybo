@@ -57,9 +57,9 @@
 #define mainUART_COMMAND_CONSOLE_TASK_PRIORITY	( tskIDLE_PRIORITY )
 
 /* Task functions. */
-static void task1(void *pvParameters);
-static void task2(void *pvParameters);
-static void task3(void *pvParameters);
+static void tIdle(void *pvParameters);
+static void tConf(void *pvParameters);
+static void tModulate(void *pvParameters);
 /*
  * The task that manages the FreeRTOS+CLI input and output.
  */
@@ -69,9 +69,9 @@ extern void vUARTCommandConsoleStart(uint16_t usStackSize,
 /**
  * Tasks.
  */
-static TaskHandle_t task1handle;
-static TaskHandle_t task2handle;
-static TaskHandle_t task3handle;
+static TaskHandle_t tIdleHandle;
+static TaskHandle_t tConfHandle;
+static TaskHandle_t tModulateHandle;
 
 void init() {
 	/**
@@ -99,27 +99,27 @@ void init() {
 int main(void) {
 	init();
 
-	xTaskCreate(task1, (const char *) "Task1",
+	xTaskCreate(tIdle, (const char *) "Idle",
 	configMINIMAL_STACK_SIZE,
 	NULL,
-	tskIDLE_PRIORITY, &task1handle);
+	tskIDLE_PRIORITY, &tIdleHandle);
 
-	xTaskCreate(task2, (const char *) "Task2",
+	xTaskCreate(tConf, (const char *) "Configure",
 	configMINIMAL_STACK_SIZE,
 	NULL,
-	tskIDLE_PRIORITY + 1, &task2handle);
+	tskIDLE_PRIORITY + 1, &tConfHandle);
 
-	xTaskCreate(task3, (const char *) "Task3",
+	xTaskCreate(tModulate, (const char *) "Modulate",
 	configMINIMAL_STACK_SIZE,
 	NULL,
-	tskIDLE_PRIORITY + 1, &task3handle);
+	tskIDLE_PRIORITY + 1, &tModulateHandle);
 
 	vTaskStartScheduler();
 	xil_printf("main reached end unexpectedly.");
 }
 
 /*-----------------------------------------------------------*/
-static void task1(void *pvParameters) {
+static void tIdle(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
 	int counter = 0;
 	for (;;) {
@@ -137,7 +137,7 @@ static void task1(void *pvParameters) {
 }
 
 /*-----------------------------------------------------------*/
-static void task2(void *pvParameters) {
+static void tConf(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
 
 	for (;;) {
@@ -146,7 +146,7 @@ static void task2(void *pvParameters) {
 }
 
 /*-----------------------------------------------------------*/
-static void task3(void *pvParameters) {
+static void tModulate(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
 
 	while (1) {

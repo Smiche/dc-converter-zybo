@@ -33,7 +33,7 @@ src/main.o src/main.o: ../src/main.c \
  ../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xil_exception.h \
  ../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xuartps_hw.h \
  ../src/Sample-CLI-commands.h ../src/FreeRTOS_CLI.h \
- D:\SoftwareDev\dc-converter-zybo\zybo_platform/zynq_registers.h \
+ /home/samppa/xilinx/workspace/zybo_platform/zynq_registers.h \
  ../src/led.h
 
 ../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/FreeRTOS.h:
@@ -106,6 +106,6 @@ src/main.o src/main.o: ../src/main.c \
 
 ../src/FreeRTOS_CLI.h:
 
-D:\SoftwareDev\dc-converter-zybo\zybo_platform/zynq_registers.h:
+/home/samppa/xilinx/workspace/zybo_platform/zynq_registers.h:
 
 ../src/led.h:
