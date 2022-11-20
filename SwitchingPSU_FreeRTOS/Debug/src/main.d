@@ -32,6 +32,8 @@ src/main.o src/main.o: ../src/main.c \
  ../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xscugic_hw.h \
  ../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xil_exception.h \
  ../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xuartps_hw.h \
+ ../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xgpio.h \
+ ../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xgpio_l.h \
  ../src/Sample-CLI-commands.h ../src/FreeRTOS_CLI.h \
  D:\SoftwareDev\dc-converter-zybo\zybo_platform/zynq_registers.h \
  ../src/led.h
@@ -101,6 +103,10 @@ src/main.o src/main.o: ../src/main.c \
 ../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xil_exception.h:
 
 ../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xuartps_hw.h:
+
+../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xgpio.h:
+
+../../SwitchingPSU_FreeRTOS_bsp/ps7_cortexa9_0/include/xgpio_l.h:
 
 ../src/Sample-CLI-commands.h:
 

@@ -40,13 +40,12 @@
 #include "xparameters.h"
 #include "xscugic.h"
 #include "xuartps_hw.h"
+#include "xgpio.h"
 /* Sample commands from FreeRTOS-CLI*/
 #include "Sample-CLI-commands.h"
 
 #include <zynq_registers.h> // Defines hardware registers
 #include "led.h"
-
-// configTICK_RATE_HZ set to 1000
 
 /*** Global Variables ***/
 #define TIMER_ID	1
@@ -73,7 +72,7 @@ static TaskHandle_t task1handle;
 static TaskHandle_t task2handle;
 static TaskHandle_t task3handle;
 
-void init() {
+int init() {
 	/**
 	 * Register commands from FreeRTOS-CLI.
 	 */
@@ -94,6 +93,7 @@ void init() {
 	 * LED to OUTPUT mode
 	 */
 	Xil_Out32((AXI_LED_TRI_ADDRESS), 0x0);
+	return init_rgb_led();
 }
 
 int main(void) {
@@ -125,12 +125,16 @@ static void task1(void *pvParameters) {
 	for (;;) {
 		vTaskDelay(x1second);
 		counter++;
-		if(counter%2){
+		if (counter % 2) {
 			set_led(LED_0, up);
 			set_led(LED_2, up);
+			set_led(LED_1, down);
+			set_led(LED_3, down);
 		} else {
 			set_led(LED_1, up);
 			set_led(LED_3, up);
+			set_led(LED_0, down);
+			set_led(LED_2, down);
 			counter = 0;
 		}
 	}
@@ -138,10 +142,26 @@ static void task1(void *pvParameters) {
 
 /*-----------------------------------------------------------*/
 static void task2(void *pvParameters) {
-	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
+	const TickType_t ms100 = pdMS_TO_TICKS(100UL);
+
+	int counter = 0;
+	int dir = 1;
 
 	for (;;) {
-		vTaskDelay(x1second);
+		if (dir) {
+			counter+=5;
+		} else {
+			counter-=5;
+		}
+
+		led_set_duty(RED, counter);
+
+		if (counter >= 99) {
+			dir = 0;
+		} else if (counter <= 1) {
+			dir = 1;
+		}
+		vTaskDelay(ms100);
 	}
 }
 
