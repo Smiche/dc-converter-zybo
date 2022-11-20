@@ -1,0 +1,7 @@
+/makefile
+/objects.mk
+/sources.mk
+/src/
+*.spec
+*.elf
+*.elf.size
