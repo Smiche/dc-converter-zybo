@@ -46,6 +46,8 @@
 
 #include <zynq_registers.h> // Defines hardware registers
 #include "led.h"
+#include "inputs.h"
+#include "utils.h"
 
 /*** Global Variables ***/
 #define TIMER_ID	1
@@ -71,6 +73,7 @@ extern void vUARTCommandConsoleStart(uint16_t usStackSize,
 static TaskHandle_t tIdleHandle;
 static TaskHandle_t tConfHandle;
 static TaskHandle_t tModulateHandle;
+static TaskHandle_t tSWInputHandle;
 
 int init() {
 	/**
@@ -93,6 +96,7 @@ int init() {
 	 * LED to OUTPUT mode
 	 */
 	Xil_Out32((AXI_LED_TRI_ADDRESS), 0x0);
+	init_sw_inputs();
 	return init_rgb_led();
 }
 
@@ -113,6 +117,11 @@ int main(void) {
 	configMINIMAL_STACK_SIZE,
 	NULL,
 	tskIDLE_PRIORITY + 1, &tModulateHandle);
+
+	xTaskCreate(task_sw_watch, (const char *) "SwIO",
+	configMINIMAL_STACK_SIZE,
+	NULL,
+	tskIDLE_PRIORITY + 1, &tSWInputHandle);
 
 	vTaskStartScheduler();
 	xil_printf("main reached end unexpectedly.");
@@ -144,14 +153,15 @@ static void tIdle(void *pvParameters) {
 static void tConf(void *pvParameters) {
 	const TickType_t ms100 = pdMS_TO_TICKS(100UL);
 
+	char sw_values = 0;
 	int counter = 0;
 	int dir = 1;
 
 	for (;;) {
 		if (dir) {
-			counter+=5;
+			counter += 5;
 		} else {
-			counter-=5;
+			counter -= 5;
 		}
 
 		led_set_duty(RED, counter);
@@ -161,6 +171,14 @@ static void tConf(void *pvParameters) {
 		} else if (counter <= 1) {
 			dir = 1;
 		}
+
+		// Receive switch value changes through queue.
+		if (xQueueReceive(sw_status_queue, &sw_values, 10) == pdTRUE) {
+			char str[9];
+			sprintf(str, BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(sw_values));
+			xil_printf("%s", str);
+		}
+
 		vTaskDelay(ms100);
 	}
 }
