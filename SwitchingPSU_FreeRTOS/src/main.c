@@ -153,7 +153,7 @@ static void tIdle(void *pvParameters) {
 static void tConf(void *pvParameters) {
 	const TickType_t ms100 = pdMS_TO_TICKS(100UL);
 
-	char sw_values = 0;
+	SW_STATUS_T sw_statuses = { 0, 0, 0, 0 };
 	int counter = 0;
 	int dir = 1;
 
@@ -173,10 +173,9 @@ static void tConf(void *pvParameters) {
 		}
 
 		// Receive switch value changes through queue.
-		if (xQueueReceive(sw_status_queue, &sw_values, 10) == pdTRUE) {
-			char str[9];
-			sprintf(str, BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(sw_values));
-			xil_printf("%s", str);
+		if (xQueueReceive(sw_status_queue, &sw_statuses, 10) == pdTRUE) {
+			xil_printf("SW0: %d SW1: %d SW2: %d SW3: %d\n", sw_statuses.sw0,
+					sw_statuses.sw1, sw_statuses.sw2, sw_statuses.sw3);
 		}
 
 		vTaskDelay(ms100);
