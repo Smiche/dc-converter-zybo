@@ -41,6 +41,7 @@
 #include "xscugic.h"
 #include "xuartps_hw.h"
 #include "xgpio.h"
+#include "PID.h"
 /* Sample commands from FreeRTOS-CLI*/
 #include "Sample-CLI-commands.h"
 
