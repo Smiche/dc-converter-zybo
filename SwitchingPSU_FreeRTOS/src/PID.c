@@ -1,4 +1,5 @@
 /* PID.c */
+#include <stdio.h>
 #include "PID.h"
 
 float PID(float Kp, float Ki, float Kd, float voltageref, float voltage){
