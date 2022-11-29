@@ -88,15 +88,10 @@ int init() {
 	mainUART_COMMAND_CONSOLE_TASK_PRIORITY);
 
 	/**
-	 * Switch to INPUT mode
-	 */
-	Xil_Out32((AXI_SW_TRI_ADDRESS), 0x5);
-
-	/**
 	 * LED to OUTPUT mode
 	 */
 	Xil_Out32((AXI_LED_TRI_ADDRESS), 0x0);
-	init_sw_inputs();
+	init_inputs();
 	return init_rgb_led();
 }
 
@@ -118,7 +113,7 @@ int main(void) {
 	NULL,
 	tskIDLE_PRIORITY + 1, &tModulateHandle);
 
-	xTaskCreate(task_sw_watch, (const char *) "SwIO",
+	xTaskCreate(task_input_watch, (const char *) "SwIO",
 	configMINIMAL_STACK_SIZE,
 	NULL,
 	tskIDLE_PRIORITY + 1, &tSWInputHandle);
@@ -153,7 +148,7 @@ static void tIdle(void *pvParameters) {
 static void tConf(void *pvParameters) {
 	const TickType_t ms100 = pdMS_TO_TICKS(100UL);
 
-	SW_STATUS_T sw_statuses = { 0, 0, 0, 0 };
+	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
 	int counter = 0;
 	int dir = 1;
 
@@ -173,9 +168,11 @@ static void tConf(void *pvParameters) {
 		}
 
 		// Receive switch value changes through queue.
-		if (xQueueReceive(sw_status_queue, &sw_statuses, 10) == pdTRUE) {
-			xil_printf("SW0: %d SW1: %d SW2: %d SW3: %d\n", sw_statuses.sw0,
-					sw_statuses.sw1, sw_statuses.sw2, sw_statuses.sw3);
+		if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
+			xil_printf("SW0: %d SW1: %d SW2: %d SW3: %d\n", input_statuses.sw0,
+					input_statuses.sw1, input_statuses.sw2, input_statuses.sw3);
+			xil_printf("BT0: %d BT1: %d BT2: %d BT3: %d\n", input_statuses.bt0,
+					input_statuses.bt1, input_statuses.bt2, input_statuses.bt3);
 		}
 
 		vTaskDelay(ms100);
