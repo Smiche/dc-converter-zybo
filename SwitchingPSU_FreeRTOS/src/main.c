@@ -124,6 +124,10 @@ int main(void) {
 }
 
 /*-----------------------------------------------------------*/
+/*
+ * Idle
+ * converter off
+ */
 static void tIdle(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
 	int counter = 0;
@@ -146,6 +150,13 @@ static void tIdle(void *pvParameters) {
 }
 
 /*-----------------------------------------------------------*/
+/*
+ * Configuration
+ * Select configurable parameter Kp or Ki
+ * Increase or decrease value of selected parameter
+ *
+ * Reference voltage can be adjusted only from console
+ */
 static void tConf(void *pvParameters) {
 	const TickType_t ms100 = pdMS_TO_TICKS(100UL);
 
@@ -181,6 +192,10 @@ static void tConf(void *pvParameters) {
 }
 
 /*-----------------------------------------------------------*/
+/*
+ * Modulate
+ * converter on, uses PID, reference voltage can be adjusted with console?
+ */
 static void tModulate(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
 

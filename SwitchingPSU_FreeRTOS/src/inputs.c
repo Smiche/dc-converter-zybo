@@ -49,10 +49,10 @@ void task_input_watch(void *pvParameters) {
 			input_statuses.sw2 = sw_values >> 2 & 1;
 			input_statuses.sw3 = sw_values >> 3 & 1;
 
-			input_statuses.bt0 = bt_values & 1;
-			input_statuses.bt1 = bt_values >> 1 & 1;
-			input_statuses.bt2 = bt_values >> 2 & 1;
-			input_statuses.bt3 = bt_values >> 3 & 1;
+			input_statuses.bt0 = bt_values & 1;				// Mode select (idle, configuration, modulate)
+			input_statuses.bt1 = bt_values >> 1 & 1;		// Parameter select (Kp, Ki) (only in configuration mode)
+			input_statuses.bt2 = bt_values >> 2 & 1;		// Decrease selected parameters value (only in configuration mode)
+			input_statuses.bt3 = bt_values >> 3 & 1;		// Increase selected parameters value (only in configuration mode)
 
 			xQueueSend(inputs_status_queue, &input_statuses, 10);
 			// save the changes locally
