@@ -32,6 +32,7 @@
 #include "task.h"
 #include "queue.h"
 #include "timers.h"
+#include "semphr.h"
 /* Xilinx includes. */
 #include "xil_types.h"
 #include "xil_printf.h"
@@ -75,6 +76,21 @@ static TaskHandle_t tIdleHandle;
 static TaskHandle_t tConfHandle;
 static TaskHandle_t tModulateHandle;
 static TaskHandle_t tSWInputHandle;
+
+/*
+ * Global program variables
+ *
+ * modeSemaphore is for the tasks idle, conf, modulate. Needs some way to make sure
+ * that correct task gets the semaphore and at mode change passes the semaphore for
+ * the next mode to be ran.
+ *
+ * confSemaphore is a semaphore for the configuration with buttons or serial.
+ */
+SemaphoreHandle_t modeSemaphore;
+SemaphoreHandle_t confSemaphore;
+float Kp, Ki, Kd, voltageRef;
+
+
 
 int init() {
 	/**
