@@ -58,6 +58,11 @@
 #define TIMER_CHECK_THRESHOLD	9
 #define mainUART_COMMAND_CONSOLE_STACK_SIZE	( configMINIMAL_STACK_SIZE * 3UL )
 #define mainUART_COMMAND_CONSOLE_TASK_PRIORITY	( tskIDLE_PRIORITY )
+/* Values for state variable */
+#define modeIdle 0
+#define modeConf 1
+#define modeMod 2
+
 
 /* Task functions. */
 static void tIdle(void *pvParameters);
@@ -89,6 +94,7 @@ static TaskHandle_t tSWInputHandle;
 SemaphoreHandle_t modeSemaphore;
 SemaphoreHandle_t confSemaphore;
 float Kp, Ki, Kd, voltageRef;
+int stateVar = 0;
 
 
 
@@ -110,6 +116,24 @@ int init() {
 	Xil_Out32((AXI_LED_TRI_ADDRESS), 0x0);
 	init_inputs();
 	return init_rgb_led();
+
+	/*
+	 * Create semaphores
+	 */
+	modeSemaphore = xSemaphoreCreateBinary();
+	if (modeSemaphore == NULL) {
+		// TODO Handle failure in semaphore creation
+	}
+	confSemaphore = xSemaphoreCreateBinary();
+	if (confSemaphore == NULL) {
+		// TODO Handle failure in semaphore creation
+	}
+
+	/*
+	 * Initialize PID parameters and reference voltage
+	 * TODO Initialize values
+	 */
+	Kp = Ki = Kd = voltageRef = 0;
 }
 
 int main(void) {
@@ -168,7 +192,7 @@ static void tIdle(void *pvParameters) {
 /*-----------------------------------------------------------*/
 /*
  * Configuration
- * Select configurable parameter Kp or Ki
+ * Select configurable parameter Kp or Ki (or Kd)
  * Increase or decrease value of selected parameter
  *
  * Reference voltage can be adjusted only from console
@@ -181,29 +205,51 @@ static void tConf(void *pvParameters) {
 	int dir = 1;
 
 	for (;;) {
-		if (dir) {
-			counter += 5;
-		} else {
-			counter -= 5;
+		/* Wait for semaphore to run */
+		if (modeSemaphore != NULL) {
+			if (xSemaphoreTake(modeSemaphore, (TickType_t) 10) == pdTRUE) {
+
+				for (;;) {
+					/* Check from state variable if permission to run */
+					if (stateVar != modeConf) {
+						// Give semaphore away
+						if (xSemaphoreGive(modeSemaphore) != pdTRUE) {
+							// TODO Handle giving semaphore away failed
+						}
+						// Break to outer loop and wait for next turn
+						break;
+					}
+
+					if (dir) {
+						counter += 5;
+					} else {
+						counter -= 5;
+					}
+
+					led_set_duty(RED, counter);
+
+					if (counter >= 99) {
+						dir = 0;
+					} else if (counter <= 1) {
+						dir = 1;
+					}
+
+					// Receive switch value changes through queue.
+					if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
+						xil_printf("SW0: %d SW1: %d SW2: %d SW3: %d\n", input_statuses.sw0,
+								input_statuses.sw1, input_statuses.sw2, input_statuses.sw3);
+						xil_printf("BT0: %d BT1: %d BT2: %d BT3: %d\n", input_statuses.bt0,
+								input_statuses.bt1, input_statuses.bt2, input_statuses.bt3);
+					}
+
+					vTaskDelay(ms100);
+				}
+			}
+			else {
+				// Semaphore couldn't be taken.
+				// TODO Handle semaphore not taken
+			}
 		}
-
-		led_set_duty(RED, counter);
-
-		if (counter >= 99) {
-			dir = 0;
-		} else if (counter <= 1) {
-			dir = 1;
-		}
-
-		// Receive switch value changes through queue.
-		if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
-			xil_printf("SW0: %d SW1: %d SW2: %d SW3: %d\n", input_statuses.sw0,
-					input_statuses.sw1, input_statuses.sw2, input_statuses.sw3);
-			xil_printf("BT0: %d BT1: %d BT2: %d BT3: %d\n", input_statuses.bt0,
-					input_statuses.bt1, input_statuses.bt2, input_statuses.bt3);
-		}
-
-		vTaskDelay(ms100);
 	}
 }
 
