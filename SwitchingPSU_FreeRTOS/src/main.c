@@ -202,6 +202,7 @@ static void tConf(void *pvParameters) {
 
 	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
 	int counter = 0;
+	int parameter_select = 1;
 	int dir = 1;
 
 	for (;;) {
@@ -236,10 +237,49 @@ static void tConf(void *pvParameters) {
 
 					// Receive switch value changes through queue.
 					if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
+						// If second button is pressed changes what PID parameter is altered
+						if(input_statuses.bt1 == 1){
+							if (parameter_select < 3) {
+								parameter_select += 1;
+								} else if (parameter_select == 3) {
+									parameter_select = 1;
+								}
+						}
+						// If third or fourth button is pressed changes selected PID value up or down
+						// Changes Kp +-1, Ki +- 0.01, Kd +- 0,1
+						if(input_statuses.bt2 == 1){
+							if(parameter_select == 1){
+								Kp += 1;
+							}else if(parameter_select == 2){
+								Ki += 0.01;
+							}else if(parameter_select == 3){
+								Kd += 0.1;
+							}
+
+						}
+
+						if(input_statuses.bt3 == 1){
+							if(parameter_select == 1){
+								if(Kp > 0){
+									Kp -= 1;
+								}
+							}else if(parameter_select == 2){
+								if(Ki > 0){
+									Ki -= 0.01;
+								}
+							}else if(parameter_select == 3){
+								if(Ki > 0){
+									Kd -= 0.1;
+								}
+							}
+						}
 						xil_printf("SW0: %d SW1: %d SW2: %d SW3: %d\n", input_statuses.sw0,
 								input_statuses.sw1, input_statuses.sw2, input_statuses.sw3);
 						xil_printf("BT0: %d BT1: %d BT2: %d BT3: %d\n", input_statuses.bt0,
 								input_statuses.bt1, input_statuses.bt2, input_statuses.bt3);
+						// Prints PID values to console
+						xil_printf("PID values are:\n");
+						xil_printf("Kp: %f Ki: %f Kd: %f\n", Kp, Ki, Kd);
 					}
 
 					vTaskDelay(ms100);
@@ -260,10 +300,25 @@ static void tConf(void *pvParameters) {
  */
 static void tModulate(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
-
+	
+	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	float PID_value = 0;
+	float voltage = 0;
+	
 	while (1) {
 		vTaskDelay(x1second);
 		// read switch
 		u8 read = Xil_In8((AXI_SW_DATA_ADDRESS));
+		// Receive switch value changes through queue.
+		if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
+			// Changes reference voltage according which button is pressed
+			if(input_statuses.bt2 == 1){
+				voltageRef += 1;
+			}else if(input_statuses.bt3 == 1){
+				voltageRef -= 1;
+			}
+		}
+		// Calculates PID output
+		PID_value = PID(Kp, Ki, Kd, voltageRef, voltage);
 	}
 }
