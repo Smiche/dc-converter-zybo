@@ -42,7 +42,6 @@
 #include "xscugic.h"
 #include "xuartps_hw.h"
 #include "xgpio.h"
-#include "PID.h"
 /* Sample commands from FreeRTOS-CLI*/
 #include "Sample-CLI-commands.h"
 
@@ -50,6 +49,8 @@
 #include "led.h"
 #include "inputs.h"
 #include "utils.h"
+#include "PID.h"
+#include "converter.h"
 
 /*** Global Variables ***/
 #define TIMER_ID	1
