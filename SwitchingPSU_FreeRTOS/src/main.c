@@ -94,7 +94,7 @@ static TaskHandle_t tSWInputHandle;
  */
 SemaphoreHandle_t modeSemaphore;
 SemaphoreHandle_t confSemaphore;
-float Kp, Ki, Kd, voltageRef;
+float Kp, Ki, Kd, voltageRef, saturation_limit;
 int stateVar = 0;
 
 
@@ -135,6 +135,7 @@ int init() {
 	 * TODO Initialize values
 	 */
 	Kp = Ki = Kd = voltageRef = 0;
+	saturation_limit = 50; //?
 }
 
 int main(void) {
@@ -320,6 +321,6 @@ static void tModulate(void *pvParameters) {
 			}
 		}
 		// Calculates PID output
-		PID_value = PID(Kp, Ki, Kd, voltageRef, voltage);
+		PID_value = PID(Kp, Ki, Kd, voltageRef, voltage, saturation_limit);
 	}
 }
