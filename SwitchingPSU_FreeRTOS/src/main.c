@@ -63,12 +63,14 @@
 #define modeIdle 0
 #define modeConf 1
 #define modeMod 2
+#define MAX_STATES 3
 
 
 /* Task functions. */
 static void tIdle(void *pvParameters);
 static void tConf(void *pvParameters);
 static void tModulate(void *pvParameters);
+static void tState(void *pvParameters);
 /*
  * The task that manages the FreeRTOS+CLI input and output.
  */
@@ -82,6 +84,7 @@ static TaskHandle_t tIdleHandle;
 static TaskHandle_t tConfHandle;
 static TaskHandle_t tModulateHandle;
 static TaskHandle_t tSWInputHandle;
+static TaskHandle_t tStateHandle;
 
 /*
  * Global program variables
@@ -161,6 +164,11 @@ int main(void) {
 	NULL,
 	tskIDLE_PRIORITY + 1, &tSWInputHandle);
 
+	xTaskCreate(tState, (const char *) "HandleState",
+	configMINIMAL_STACK_SIZE,
+	NULL,
+	tskIDLE_PRIORITY + 2, &tStateHandle);
+
 	vTaskStartScheduler();
 	xil_printf("main reached end unexpectedly.");
 }
@@ -172,22 +180,9 @@ int main(void) {
  */
 static void tIdle(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
-	int counter = 0;
 	for (;;) {
+		// Do nothing
 		vTaskDelay(x1second);
-		counter++;
-		if (counter % 2) {
-			set_led(LED_0, up);
-			set_led(LED_2, up);
-			set_led(LED_1, down);
-			set_led(LED_3, down);
-		} else {
-			set_led(LED_1, up);
-			set_led(LED_3, up);
-			set_led(LED_0, down);
-			set_led(LED_2, down);
-			counter = 0;
-		}
 	}
 }
 
@@ -203,9 +198,7 @@ static void tConf(void *pvParameters) {
 	const TickType_t ms100 = pdMS_TO_TICKS(100UL);
 
 	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	int counter = 0;
 	int parameter_select = 1;
-	int dir = 1;
 
 	for (;;) {
 		/* Wait for semaphore to run */
@@ -221,20 +214,6 @@ static void tConf(void *pvParameters) {
 						}
 						// Break to outer loop and wait for next turn
 						break;
-					}
-
-					if (dir) {
-						counter += 5;
-					} else {
-						counter -= 5;
-					}
-
-					led_set_duty(RED, counter);
-
-					if (counter >= 99) {
-						dir = 0;
-					} else if (counter <= 1) {
-						dir = 1;
 					}
 
 					// Receive switch value changes through queue.
@@ -330,5 +309,25 @@ static void tModulate(void *pvParameters) {
 		// TODO show voltage output with rgb led
 		// Should the led duty be calculated from the voltage?
 		led_set_duty(RED, (int) voltage);
+	}
+}
+
+
+// State change handler
+static void tState(void *pvParameters) {
+	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	// Receive switch value changes through queue.
+	if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
+		// If first button pressed
+		if (input_statuses.bt0 == 1) {
+			// Check for console usage
+			// TODO Check for console usage with semaphore
+			// Change state
+			stateVar++;
+			if (stateVar >= MAX_STATES) {
+				stateVar = 0;
+			}
+		}
+		// TODO state changes from console
 	}
 }
