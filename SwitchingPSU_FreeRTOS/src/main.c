@@ -322,5 +322,13 @@ static void tModulate(void *pvParameters) {
 		}
 		// Calculates PID output
 		PID_value = PID(Kp, Ki, Kd, voltageRef, voltage, saturation_limit);
+
+		// Calculate converter output
+		// TODO check converter model usage
+		voltage = model(PID_value);
+
+		// TODO show voltage output with rgb led
+		// Should the led duty be calculated from the voltage?
+		led_set_duty(RED, (int) voltage);
 	}
 }
