@@ -283,7 +283,7 @@ static void tModulate(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
 	
 	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	float PID_value = 0;
+	float PID_out = 0;
 	float voltage = 0;
 	
 	while (1) {
@@ -300,11 +300,13 @@ static void tModulate(void *pvParameters) {
 			}
 		}
 		// Calculates PID output
-		PID_value = PID(Kp, Ki, Kd, voltageRef, voltage, saturation_limit);
+		PID_out = PID(Kp, Ki, Kd, voltageRef, voltage, saturation_limit);
 
 		// Calculate converter output
 		// TODO check converter model usage
-		voltage = model(PID_value);
+		voltage = model(PID_out);
+		// how we print it to console?
+		// like this?: xil_printf("u3: %f\n", voltage);
 
 		// TODO show voltage output with rgb led
 		// Should the led duty be calculated from the voltage?
