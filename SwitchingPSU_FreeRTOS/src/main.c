@@ -156,20 +156,10 @@ int init() {
 int main(void) {
 	init();
 
-//	xTaskCreate(tIdle, (const char *) "Idle",
-//	configMINIMAL_STACK_SIZE,
-//	NULL,
-//	tskIDLE_PRIORITY, &tIdleHandle);
-
-	xTaskCreate(tStateControl, (const char *) "Configure",
+	xTaskCreate(tStateControl, (const char *) "StateController",
 	configMINIMAL_STACK_SIZE * 2, // Double stack size for printf
 	NULL,
 	tskIDLE_PRIORITY + 1, &tConfHandle);
-//
-//	xTaskCreate(tModulate, (const char *) "Modulate",
-//	configMINIMAL_STACK_SIZE,
-//	NULL,
-//	tskIDLE_PRIORITY + 1, &tModulateHandle);
 
 	xTaskCreate(task_input_watch, (const char *) "SwIO",
 	configMINIMAL_STACK_SIZE,
@@ -181,22 +171,6 @@ int main(void) {
 }
 
 /*-----------------------------------------------------------*/
-/*
- * Idle
- * converter off
- */
-static void tIdle(void *pvParameters) {
-	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
-	while (MODE == IDLE) {
-		// Do nothing
-		vTaskDelay(x1second);
-		xil_printf("Idling. \n");
-	}
-	vTaskDelete( NULL);
-}
-
-/*-----------------------------------------------------------*/
-
 static void tStateControl(void *pvParameters) {
 	const TickType_t ms100 = pdMS_TO_TICKS(100UL);
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
@@ -265,6 +239,21 @@ static void tStateControl(void *pvParameters) {
 		}
 	}
 
+}
+
+/*-----------------------------------------------------------*/
+/*
+ * Idle
+ * converter off
+ */
+static void tIdle(void *pvParameters) {
+	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
+	while (MODE == IDLE) {
+		// Do nothing
+		vTaskDelay(x1second);
+		xil_printf("Idling. \n");
+	}
+	vTaskDelete( NULL);
 }
 
 /*
