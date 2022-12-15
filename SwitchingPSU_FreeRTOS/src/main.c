@@ -305,6 +305,8 @@ static void tModulate(void *pvParameters) {
 	float voltage = 0;
 
 	vTaskDelay(x1second);
+	//TODO: make a secondary queue with values only for modulation. Then this can be uncommented and updated.
+	// Queues can have only one reader.
 //		// Receive switch value changes through queue.
 //		if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
 //			// Changes reference voltage according which button is pressed
@@ -342,23 +344,5 @@ static void createModulatingTask() {
 	configMINIMAL_STACK_SIZE,
 	NULL,
 	tskIDLE_PRIORITY, &tModulateHandle);
-}
-
-int isTaskRunning(TaskHandle_t *xHandle) {
-	TaskStatus_t xTaskDetails;
-
-	vTaskGetInfo( /* The handle of the task being queried. */
-	*xHandle,
-	/* The TaskStatus_t structure to complete with information
-	 on xTask. */
-	&xTaskDetails,
-	/* Include the stack high water mark value in the
-	 TaskStatus_t structure. */
-	pdTRUE,
-	/* Include the task state in the TaskStatus_t structure. */
-	eInvalid);
-
-	xTaskDetails.eCurrentState;
-	return 0;
 }
 
