@@ -83,7 +83,6 @@ extern void vUARTCommandConsoleStart(uint16_t usStackSize,
  * Task handles.
  */
 static TaskHandle_t tIdleHandle;
-static TaskHandle_t tConfHandle;
 static TaskHandle_t tModulateHandle;
 static TaskHandle_t tSWInputHandle;
 static TaskHandle_t tStateHandle;
@@ -99,7 +98,7 @@ static TaskHandle_t tStateHandle;
  */
 SemaphoreHandle_t modeSemaphore;
 SemaphoreHandle_t confSemaphore;
-static char MODE;
+static char MODE = IDLE;
 
 CONVERTER_CONFIG_T converterConfig = { 0, 0, 0, 0, 50 };
 
@@ -159,7 +158,7 @@ int main(void) {
 	xTaskCreate(tStateControl, (const char *) "StateController",
 	configMINIMAL_STACK_SIZE * 2, // Double stack size for printf
 	NULL,
-	tskIDLE_PRIORITY + 1, &tConfHandle);
+	tskIDLE_PRIORITY + 1, &tStateHandle);
 
 	xTaskCreate(task_input_watch, (const char *) "SwIO",
 	configMINIMAL_STACK_SIZE,
@@ -178,7 +177,7 @@ static void tStateControl(void *pvParameters) {
 	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
 	char parameter_select = 1;
 	char xStatus = 0;
-	char modeCounter = 0;
+	unsigned char modeCounter = 0; // 0-255 with overflow
 	MODE = 0;
 	char modeChanged = 1;
 
