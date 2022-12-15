@@ -59,6 +59,7 @@
 #define TIMER_CHECK_THRESHOLD	9
 #define mainUART_COMMAND_CONSOLE_STACK_SIZE	( configMINIMAL_STACK_SIZE * 3UL )
 #define mainUART_COMMAND_CONSOLE_TASK_PRIORITY	( tskIDLE_PRIORITY )
+#define MAX_VOLTAGE 100 // TODO value for max voltage should be calculated somehow.
 /* Values for state variable */
 #define modeIdle 0
 #define modeConf 1
@@ -98,7 +99,7 @@ static TaskHandle_t tStateHandle;
 SemaphoreHandle_t modeSemaphore;
 SemaphoreHandle_t confSemaphore;
 float Kp, Ki, Kd, voltageRef, saturation_limit;
-int stateVar = 0;
+static int stateVar = 0;
 
 
 
@@ -308,9 +309,8 @@ static void tModulate(void *pvParameters) {
 		// how we print it to console?
 		// like this?: xil_printf("u3: %f\n", voltage);
 
-		// TODO show voltage output with rgb led
-		// Should the led duty be calculated from the voltage?
-		led_set_duty(RED, (int) voltage);
+		// Show voltage output as a percentage of max voltage
+		led_set_duty(RED, (int) (voltage/MAX_VOLTAGE));
 	}
 }
 

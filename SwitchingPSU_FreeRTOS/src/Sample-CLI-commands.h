@@ -64,12 +64,6 @@ void vRegisterSampleCLICommands( void );
  */
 static BaseType_t prvTaskStatsCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
 
-/*
- * Implements the run-time-stats command.
- */
-#if( configGENERATE_RUN_TIME_STATS == 1 )
-	static BaseType_t prvRunTimeStatsCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
-#endif /* configGENERATE_RUN_TIME_STATS */
 
 /*
  * Implements the echo-three-parameters command.
@@ -80,20 +74,6 @@ static BaseType_t prvThreeParameterEchoCommand( char *pcWriteBuffer, size_t xWri
  * Implements the echo-parameters command.
  */
 static BaseType_t prvParameterEchoCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
-
-/*
- * Implements the "query heap" command.
- */
-#if( configINCLUDE_QUERY_HEAP_COMMAND == 1 )
-	static BaseType_t prvQueryHeapCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
-#endif
-
-/*
- * Implements the "trace start" and "trace stop" commands;
- */
-#if( configINCLUDE_TRACE_RELATED_CLI_COMMANDS == 1 )
-	static BaseType_t prvStartStopTraceCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString );
-#endif
 
 /* Structure that defines the "task-stats" command line command.  This generates
 a table that gives information on each task in the system. */
@@ -127,41 +107,6 @@ static const CLI_Command_Definition_t xParameterEcho =
 	-1 /* The user can enter any number of commands. */
 };
 
-#if( configGENERATE_RUN_TIME_STATS == 1 )
-	/* Structure that defines the "run-time-stats" command line command.   This
-	generates a table that shows how much run time each task has */
-	static const CLI_Command_Definition_t xRunTimeStats =
-	{
-		"run-time-stats", /* The command string to type. */
-		"\r\nrun-time-stats:\r\n Displays a table showing how much processing time each FreeRTOS task has used\r\n",
-		prvRunTimeStatsCommand, /* The function to run. */
-		0 /* No parameters are expected. */
-	};
-#endif /* configGENERATE_RUN_TIME_STATS */
-
-#if( configINCLUDE_QUERY_HEAP_COMMAND == 1 )
-	/* Structure that defines the "query_heap" command line command. */
-	static const CLI_Command_Definition_t xQueryHeap =
-	{
-		"query-heap",
-		"\r\nquery-heap:\r\n Displays the free heap space, and minimum ever free heap space.\r\n",
-		prvQueryHeapCommand, /* The function to run. */
-		0 /* The user can enter any number of commands. */
-	};
-#endif /* configQUERY_HEAP_COMMAND */
-
-#if configINCLUDE_TRACE_RELATED_CLI_COMMANDS == 1
-	/* Structure that defines the "trace" command line command.  This takes a single
-	parameter, which can be either "start" or "stop". */
-	static const CLI_Command_Definition_t xStartStopTrace =
-	{
-		"trace",
-		"\r\ntrace [start | stop]:\r\n Starts or stops a trace recording for viewing in FreeRTOS+Trace\r\n",
-		prvStartStopTraceCommand, /* The function to run. */
-		1 /* One parameter is expected.  Valid values are "start" and "stop". */
-	};
-#endif /* configINCLUDE_TRACE_RELATED_CLI_COMMANDS */
-
 /*-----------------------------------------------------------*/
 
 void vRegisterSampleCLICommands( void )
@@ -170,24 +115,8 @@ void vRegisterSampleCLICommands( void )
 	FreeRTOS_CLIRegisterCommand( &xTaskStats );	
 	FreeRTOS_CLIRegisterCommand( &xThreeParameterEcho );
 	FreeRTOS_CLIRegisterCommand( &xParameterEcho );
+	FreeRTOS_CLI_RegisterCommand( &xStateChange );
 
-	#if( configGENERATE_RUN_TIME_STATS == 1 )
-	{
-		FreeRTOS_CLIRegisterCommand( &xRunTimeStats );
-	}
-	#endif
-	
-	#if( configINCLUDE_QUERY_HEAP_COMMAND == 1 )
-	{
-		FreeRTOS_CLIRegisterCommand( &xQueryHeap );
-	}
-	#endif
-
-	#if( configINCLUDE_TRACE_RELATED_CLI_COMMANDS == 1 )
-	{
-		FreeRTOS_CLIRegisterCommand( &xStartStopTrace );
-	}
-	#endif
 }
 /*-----------------------------------------------------------*/
 
@@ -226,70 +155,6 @@ BaseType_t xSpacePadding;
 	pdFALSE. */
 	return pdFALSE;
 }
-/*-----------------------------------------------------------*/
-
-#if( configINCLUDE_QUERY_HEAP_COMMAND == 1 )
-
-	static BaseType_t prvQueryHeapCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
-	{
-		/* Remove compile time warnings about unused parameters, and check the
-		write buffer is not NULL.  NOTE - for simplicity, this example assumes the
-		write buffer length is adequate, so does not check for buffer overflows. */
-		( void ) pcCommandString;
-		( void ) xWriteBufferLen;
-		configASSERT( pcWriteBuffer );
-
-		sprintf( pcWriteBuffer, "Current free heap %d bytes, minimum ever free heap %d bytes\r\n", ( int ) xPortGetFreeHeapSize(), ( int ) xPortGetMinimumEverFreeHeapSize() );
-
-		/* There is no more data to return after this single string, so return
-		pdFALSE. */
-		return pdFALSE;
-	}
-
-#endif /* configINCLUDE_QUERY_HEAP */
-/*-----------------------------------------------------------*/
-
-#if( configGENERATE_RUN_TIME_STATS == 1 )
-	
-	static BaseType_t prvRunTimeStatsCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
-	{
-	const char * const pcHeader = "  Abs Time      % Time\r\n****************************************\r\n";
-	BaseType_t xSpacePadding;
-
-		/* Remove compile time warnings about unused parameters, and check the
-		write buffer is not NULL.  NOTE - for simplicity, this example assumes the
-		write buffer length is adequate, so does not check for buffer overflows. */
-		( void ) pcCommandString;
-		( void ) xWriteBufferLen;
-		configASSERT( pcWriteBuffer );
-
-		/* Generate a table of task stats. */
-		strcpy( pcWriteBuffer, "Task" );
-		pcWriteBuffer += strlen( pcWriteBuffer );
-
-		/* Pad the string "task" with however many bytes necessary to make it the
-		length of a task name.  Minus three for the null terminator and half the
-		number of characters in	"Task" so the column lines up with the centre of
-		the heading. */
-		for( xSpacePadding = strlen( "Task" ); xSpacePadding < ( configMAX_TASK_NAME_LEN - 3 ); xSpacePadding++ )
-		{
-			/* Add a space to align columns after the task's name. */
-			*pcWriteBuffer = ' ';
-			pcWriteBuffer++;
-
-			/* Ensure always terminated. */
-			*pcWriteBuffer = 0x00;
-		}
-
-		strcpy( pcWriteBuffer, pcHeader );
-		vTaskGetRunTimeStats( pcWriteBuffer + strlen( pcHeader ) );
-
-		/* There is no more data to return after this single string, so return
-		pdFALSE. */
-		return pdFALSE;
-	}
-	
-#endif /* configGENERATE_RUN_TIME_STATS */
 /*-----------------------------------------------------------*/
 
 static BaseType_t prvThreeParameterEchoCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
@@ -426,55 +291,35 @@ static UBaseType_t uxParameterNumber = 0;
 }
 /*-----------------------------------------------------------*/
 
-#if configINCLUDE_TRACE_RELATED_CLI_COMMANDS == 1
 
-	static BaseType_t prvStartStopTraceCommand( char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString )
-	{
-	const char *pcParameter;
-	BaseType_t lParameterStringLength;
+/*
+ * Console command for state change
+ */
+static BaseType_t prvStateCommand( char *pcWriteBuffer,
+		size_t xWriteBufferLen,
+		const char *pcCommandString )
+{
+	char *pcStateParameter;
 
-		/* Remove compile time warnings about unused parameters, and check the
-		write buffer is not NULL.  NOTE - for simplicity, this example assumes the
-		write buffer length is adequate, so does not check for buffer overflows. */
-		( void ) pcCommandString;
-		( void ) xWriteBufferLen;
-		configASSERT( pcWriteBuffer );
+	pcStateParameter = FreeRTOS_CLIGetParameter(
+			pcCommandString,
+			1,
+			&xParameter1StringLength);
 
-		/* Obtain the parameter string. */
-		pcParameter = FreeRTOS_CLIGetParameter
-						(
-							pcCommandString,		/* The command string itself. */
-							1,						/* Return the first parameter. */
-							&lParameterStringLength	/* Store the parameter string length. */
-						);
+	// TODO change state according to the given parameter
+	// State parameters are idle, conf, modulate
+	// Temporary printing out the given state
+	xil_printf("%s\n", pcStateParameter);
+	return pdFALSE;
+}
 
-		/* Sanity check something was returned. */
-		configASSERT( pcParameter );
-
-		/* There are only two valid parameter values. */
-		if( strncmp( pcParameter, "start", strlen( "start" ) ) == 0 )
-		{
-			/* Start or restart the trace. */
-			vTraceStop();
-			vTraceClear();
-			vTraceStart();
-
-			sprintf( pcWriteBuffer, "Trace recording (re)started.\r\n" );
-		}
-		else if( strncmp( pcParameter, "stop", strlen( "stop" ) ) == 0 )
-		{
-			/* End the trace, if one is running. */
-			vTraceStop();
-			sprintf( pcWriteBuffer, "Stopping trace recording.\r\n" );
-		}
-		else
-		{
-			sprintf( pcWriteBuffer, "Valid parameters are 'start' and 'stop'.\r\n" );
-		}
-
-		/* There is no more data to return after this single string, so return
-		pdFALSE. */
-		return pdFALSE;
-	}
-
-#endif /* configINCLUDE_TRACE_RELATED_CLI_COMMANDS */
+/*
+ * Console command definition for state change
+ */
+static const CLI_Command_Definition_t xStateCommand =
+{
+		"mode",
+		"mode <state>: Changes current state to <state>. <state> can be one of the following: idle, conf, modulate.",
+		prvStateCommand,
+		1
+};
