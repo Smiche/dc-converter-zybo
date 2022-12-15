@@ -96,6 +96,17 @@ static const CLI_Command_Definition_t xThreeParameterEcho =
 	3 /* Three parameters are expected, which can take any value. */
 };
 
+/* Structure that defines the "task-stats" command line command.  This generates
+a table that gives information on each task in the system. */
+static const CLI_Command_Definition_t xStateChange =
+{
+	"set-state", /* The command string to type. */
+	"\r\nset-state:\r\n Change the operating mode of the device\r\n",
+	prvTaskStatsCommand, /* The function to run. */
+	0 /* No parameters are expected. */
+};
+
+
 /* Structure that defines the "echo_parameters" command line command.  This
 takes a variable number of parameters that the command simply echos back one at
 a time. */
@@ -115,8 +126,7 @@ void vRegisterSampleCLICommands( void )
 	FreeRTOS_CLIRegisterCommand( &xTaskStats );	
 	FreeRTOS_CLIRegisterCommand( &xThreeParameterEcho );
 	FreeRTOS_CLIRegisterCommand( &xParameterEcho );
-	FreeRTOS_CLI_RegisterCommand( &xStateChange );
-
+	FreeRTOS_CLIRegisterCommand( &xStateChange );
 }
 /*-----------------------------------------------------------*/
 
@@ -300,11 +310,12 @@ static BaseType_t prvStateCommand( char *pcWriteBuffer,
 		const char *pcCommandString )
 {
 	char *pcStateParameter;
+	BaseType_t xParameterStringLength, xReturn;
 
 	pcStateParameter = FreeRTOS_CLIGetParameter(
 			pcCommandString,
 			1,
-			&xParameter1StringLength);
+			&xParameterStringLength);
 
 	// TODO change state according to the given parameter
 	// State parameters are idle, conf, modulate
