@@ -15,5 +15,5 @@ typedef struct INPUT_STATUS {
 } INPUT_STATUS_T;
 
 extern QueueHandle_t inputs_status_queue;
-void init_inputs();
+int init_inputs();
 void task_input_watch(void *pvParameters);

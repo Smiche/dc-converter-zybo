@@ -14,15 +14,18 @@ XGpio gpio;
 
 const TickType_t pollDelay = pdMS_TO_TICKS(POLL_DELAY);
 
-void init_inputs() {
+int init_inputs() {
+	int Status;
+
 	inputs_status_queue = xQueueCreate(input_status_queue_length,
 			sizeof(INPUT_STATUS_T)); // init queue which can hold 5 items
-	XGpio_Initialize(&gpio, XPAR_AXI_GPIO_SW_BTN_DEVICE_ID); // init gpio connected to the switches and buttons
+	Status = XGpio_Initialize(&gpio, XPAR_AXI_GPIO_SW_BTN_DEVICE_ID); // init gpio connected to the switches and buttons
 	/**
 	 * Switch to INPUT mode for chan 1 and chan 2
 	 */
 	XGpio_SetDataDirection(&gpio, 1, 0x5);
 	XGpio_SetDataDirection(&gpio, 2, 0x5);
+	return Status;
 }
 
 void task_input_watch(void *pvParameters) {
