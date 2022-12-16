@@ -96,17 +96,6 @@ static const CLI_Command_Definition_t xThreeParameterEcho =
 	3 /* Three parameters are expected, which can take any value. */
 };
 
-/* Structure that defines the "task-stats" command line command.  This generates
-a table that gives information on each task in the system. */
-static const CLI_Command_Definition_t xStateChange =
-{
-	"set-state", /* The command string to type. */
-	"\r\nset-state:\r\n Change the operating mode of the device\r\n",
-	prvTaskStatsCommand, /* The function to run. */
-	0 /* No parameters are expected. */
-};
-
-
 /* Structure that defines the "echo_parameters" command line command.  This
 takes a variable number of parameters that the command simply echos back one at
 a time. */
@@ -126,7 +115,12 @@ void vRegisterSampleCLICommands( void )
 	FreeRTOS_CLIRegisterCommand( &xTaskStats );	
 	FreeRTOS_CLIRegisterCommand( &xThreeParameterEcho );
 	FreeRTOS_CLIRegisterCommand( &xParameterEcho );
-	FreeRTOS_CLIRegisterCommand( &xStateChange );
+	FreeRTOS_CLI_RegisterCommand( &xStateCommand );
+	FreeRTOS_CLI_RegisterCommand( &xHelpCommand );
+	FreeRTOS_CLI_RegisterCommand( &xPIDCommand );
+	FreeRTOS_CLI_RegisterCommand( &xVoltageCommand );
+
+
 }
 /*-----------------------------------------------------------*/
 
@@ -310,12 +304,11 @@ static BaseType_t prvStateCommand( char *pcWriteBuffer,
 		const char *pcCommandString )
 {
 	char *pcStateParameter;
-	BaseType_t xParameterStringLength, xReturn;
 
 	pcStateParameter = FreeRTOS_CLIGetParameter(
 			pcCommandString,
 			1,
-			&xParameterStringLength);
+			&xParameter1StringLength);
 
 	// TODO change state according to the given parameter
 	// State parameters are idle, conf, modulate
@@ -334,3 +327,101 @@ static const CLI_Command_Definition_t xStateCommand =
 		prvStateCommand,
 		1
 };
+
+/*
+ *  Console command for help menu
+ */
+static BaseType_t prvHelpCommand( char *pcWriteBuffer,
+		size_t xWriteBufferLen,
+		const char *pcCommandString )
+{
+	xil_printf("** HELP **\n");
+	xil_printf("Commands are:\n help\n pid\n state\n voltage\n");
+
+	return pdFALSE;
+}
+
+/*
+ * Console command definition for displaying help
+ */
+static const CLI_Command_Definition_t xHelpCommand =
+{
+		"help",
+		"help: Displays help.",
+		prvHelpCommand,
+		0
+};
+
+/*
+ *  Console command for changing PID parameters
+ */
+static BaseType_t prvPIDCommand( char *pcWriteBuffer,
+		size_t xWriteBufferLen,
+		const char *pcCommandString )
+{
+	char *pcPIDkeyParameter;
+	char *pcPIDvalParameter;
+
+		pcPIDkeyParameter = FreeRTOS_CLIGetParameter(
+				pcCommandString,
+				1,
+				&xParameter1StringLength);
+
+		pcPIDvalParameter = FreeRTOS_CLIGetParameter(
+				pcCommandString,
+				2,
+				&xParameter2StringLength);
+	if (strcmp(pcPIDkeyParameter, "Ki") == 0) {
+		// adjust Ki
+	}
+	else if (strcmp(pcPIDkeyParameter, "Kd") == 0) {
+		// adjust Kd
+	}
+	else if (strcmp(pcPIDkeyParameter, "Kp") == 0) {
+		// Adjust Kp
+	}
+	return pdFALSE;
+}
+
+/*
+ * Console command definition for pid
+ */
+static const CLI_Command_Definition_t xPIDCommand =
+{
+		"pid",
+		"pid: <parameter> <value> Changes <parameter> to <value>. Parameters are Ki, Kd, Kp.",
+		prvPIDCommand,
+		2
+};
+
+/*
+ * Console command for voltage change
+ */
+static BaseType_t prvVoltageCommand( char *pcWriteBuffer,
+		size_t xWriteBufferLen,
+		const char *pcCommandString )
+{
+	char *pcVoltageParameter;
+
+	pcVoltageParameter = FreeRTOS_CLIGetParameter(
+			pcCommandString,
+			1,
+			&xParameter1StringLength);
+
+	// TODO change voltageref according to the given parameter
+	// Temporary printing out the given state
+	xil_printf("%s\n", pcVoltageParameter);
+	return pdFALSE;
+}
+
+/*
+ * Console command definition for state change
+ */
+static const CLI_Command_Definition_t xVoltageCommand =
+{
+		"voltage",
+		"voltage <reference value>: Changes current reference value to <reference value>.",
+		prvVoltageCommand,
+		1
+};
+

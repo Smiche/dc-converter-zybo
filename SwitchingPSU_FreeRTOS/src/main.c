@@ -60,19 +60,18 @@
 #define mainUART_COMMAND_CONSOLE_STACK_SIZE	( configMINIMAL_STACK_SIZE * 3UL )
 #define mainUART_COMMAND_CONSOLE_TASK_PRIORITY	( tskIDLE_PRIORITY )
 #define MAX_VOLTAGE 100 // TODO value for max voltage should be calculated somehow.
-#define IDLE_TASK_NAME "Idle"
-#define MODULATING_TASK_NAME "Modulating"
+/* Values for state variable */
+#define modeIdle 0
+#define modeConf 1
+#define modeMod 2
+#define MAX_STATES 3
+
 
 /* Task functions. */
 static void tIdle(void *pvParameters);
-static void tStateControl(void *pvParameters);
+static void tConf(void *pvParameters);
 static void tModulate(void *pvParameters);
-// Method handling Configuration mode.
-static void Configure(INPUT_STATUS_T *inputs, char *parameter_select);
-
-static void createIdleTask();
-static void createModulatingTask();
-
+static void tState(void *pvParameters);
 /*
  * The task that manages the FreeRTOS+CLI input and output.
  */
@@ -80,9 +79,10 @@ extern void vUARTCommandConsoleStart(uint16_t usStackSize,
 		UBaseType_t uxPriority);
 
 /**
- * Task handles.
+ * Tasks.
  */
 static TaskHandle_t tIdleHandle;
+static TaskHandle_t tConfHandle;
 static TaskHandle_t tModulateHandle;
 static TaskHandle_t tSWInputHandle;
 static TaskHandle_t tStateHandle;
@@ -98,12 +98,12 @@ static TaskHandle_t tStateHandle;
  */
 SemaphoreHandle_t modeSemaphore;
 SemaphoreHandle_t confSemaphore;
-static char MODE = IDLE;
+float Kp, Ki, Kd, voltageRef, saturation_limit;
+static int stateVar = 0;
 
-CONVERTER_CONFIG_T converterConfig = { 0, 0, 0, 0, 50 };
+
 
 int init() {
-	int Status;
 	/**
 	 * Register commands from FreeRTOS-CLI.
 	 */
@@ -119,21 +119,8 @@ int init() {
 	 * LED to OUTPUT mode
 	 */
 	Xil_Out32((AXI_LED_TRI_ADDRESS), 0x0);
-	/**
-	 * Init Switch/Button inputs
-	 */
-	Status = init_inputs();
-	if (Status == XST_FAILURE) {
-		xil_printf("Inputs initialization failed.");
-	}
-
-	/**
-	 * Init RGB LED
-	 */
-	Status = init_rgb_led();
-	if (Status == XST_FAILURE) {
-		xil_printf("RGB led initialization failed.");
-	}
+	init_inputs();
+	return init_rgb_led();
 
 	/*
 	 * Create semaphores
@@ -141,103 +128,50 @@ int init() {
 	modeSemaphore = xSemaphoreCreateBinary();
 	if (modeSemaphore == NULL) {
 		// TODO Handle failure in semaphore creation
-	} else {
-		xSemaphoreGive(modeSemaphore);
 	}
 	confSemaphore = xSemaphoreCreateBinary();
 	if (confSemaphore == NULL) {
 		// TODO Handle failure in semaphore creation
 	}
 
-	return Status;
+	/*
+	 * Initialize PID parameters and reference voltage
+	 * TODO Initialize values
+	 */
+	Kp = Ki = Kd = voltageRef = 0;
+	saturation_limit = 50; //?
 }
 
 int main(void) {
 	init();
 
-	xTaskCreate(tStateControl, (const char *) "StateController",
-	configMINIMAL_STACK_SIZE * 2, // Double stack size for printf
+	xTaskCreate(tIdle, (const char *) "Idle",
+	configMINIMAL_STACK_SIZE,
 	NULL,
-	tskIDLE_PRIORITY + 1, &tStateHandle);
+	tskIDLE_PRIORITY, &tIdleHandle);
+
+	xTaskCreate(tConf, (const char *) "Configure",
+	configMINIMAL_STACK_SIZE,
+	NULL,
+	tskIDLE_PRIORITY + 1, &tConfHandle);
+
+	xTaskCreate(tModulate, (const char *) "Modulate",
+	configMINIMAL_STACK_SIZE,
+	NULL,
+	tskIDLE_PRIORITY + 1, &tModulateHandle);
 
 	xTaskCreate(task_input_watch, (const char *) "SwIO",
 	configMINIMAL_STACK_SIZE,
 	NULL,
 	tskIDLE_PRIORITY + 1, &tSWInputHandle);
 
+	xTaskCreate(tState, (const char *) "HandleState",
+	configMINIMAL_STACK_SIZE,
+	NULL,
+	tskIDLE_PRIORITY + 2, &tStateHandle);
+
 	vTaskStartScheduler();
 	xil_printf("main reached end unexpectedly.");
-}
-
-/*-----------------------------------------------------------*/
-static void tStateControl(void *pvParameters) {
-	const TickType_t ms100 = pdMS_TO_TICKS(100UL);
-	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
-
-	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	char parameter_select = 1;
-	char xStatus = 0;
-	unsigned char modeCounter = 0; // 0-255 with overflow
-	MODE = 0;
-	char modeChanged = 1;
-
-	for (;;) {
-		/* If semaphore is null or cannot be taken, skip iteration. */
-		if (modeSemaphore == NULL
-				|| xSemaphoreTake(modeSemaphore, (TickType_t) 10) != pdTRUE) {
-			vTaskDelay(ms100);
-			continue;
-		}
-
-		while (1) {
-			// Receive switch value changes through queue.
-			xStatus = xQueueReceive(inputs_status_queue, &input_statuses, 50);
-			vTaskDelay(ms100);
-
-			if (input_statuses.bt0) {
-				modeCounter++;
-				MODE = modeCounter % MAX_STATES; // limit mode to 2
-				modeChanged = 1;
-				// Giving some time for task loops to exit before starting new tasks.
-				vTaskDelay(x1second);
-			}
-
-			if (modeChanged) {
-				xil_printf("Mode changed to: %d", MODE);
-			}
-
-			switch (MODE) {
-			case IDLE:
-				if (!modeChanged) {
-					break;
-				}
-
-				createIdleTask();
-
-				break;
-			case CONFIGURING:
-				// Check if any input is present, then pass to Configure
-				if (xStatus == pdPASS) {
-					Configure(&input_statuses, &parameter_select);
-					vTaskDelay(ms100);
-				}
-				break;
-			case MODULATING:
-				if (modeChanged) {
-					break;
-				}
-
-				createModulatingTask();
-
-				break;
-			default:
-				xil_printf("Uknown state reached.");
-			}
-
-			modeChanged = 0;
-		}
-	}
-
 }
 
 /*-----------------------------------------------------------*/
@@ -247,14 +181,13 @@ static void tStateControl(void *pvParameters) {
  */
 static void tIdle(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
-	while (MODE == IDLE) {
+	for (;;) {
 		// Do nothing
 		vTaskDelay(x1second);
-		xil_printf("Idling. \n");
 	}
-	vTaskDelete( NULL);
 }
 
+/*-----------------------------------------------------------*/
 /*
  * Configuration
  * Select configurable parameter Kp or Ki (or Kd)
@@ -262,33 +195,83 @@ static void tIdle(void *pvParameters) {
  *
  * Reference voltage can be adjusted only from console
  */
-static void Configure(INPUT_STATUS_T *inputs, char *parameter_select) {
-	float * configPtr = &converterConfig.Kp;
+static void tConf(void *pvParameters) {
+	const TickType_t ms100 = pdMS_TO_TICKS(100UL);
 
-	if (inputs->bt1 == 1) {
-		if (*parameter_select < 2) {
-			*parameter_select += 1;
-		} else if (*parameter_select == 2) {
-			*parameter_select = 0;
+	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	int parameter_select = 1;
+
+	for (;;) {
+		/* Wait for semaphore to run */
+		if (modeSemaphore != NULL) {
+			if (xSemaphoreTake(modeSemaphore, (TickType_t) 10) == pdTRUE) {
+
+				for (;;) {
+					/* Check from state variable if permission to run */
+					if (stateVar != modeConf) {
+						// Give semaphore away
+						if (xSemaphoreGive(modeSemaphore) != pdTRUE) {
+							// TODO Handle giving semaphore away failed
+						}
+						// Break to outer loop and wait for next turn
+						break;
+					}
+
+					// Receive switch value changes through queue.
+					if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
+						// If second button is pressed changes what PID parameter is altered
+						if(input_statuses.bt1 == 1){
+							if (parameter_select < 3) {
+								parameter_select += 1;
+								} else if (parameter_select == 3) {
+									parameter_select = 1;
+								}
+						}
+						// If third or fourth button is pressed changes selected PID value up or down
+						// Changes Kp +-1, Ki +- 0.01, Kd +- 0,1
+						if(input_statuses.bt2 == 1){
+							if(parameter_select == 1){
+								Kp += 1;
+							}else if(parameter_select == 2){
+								Ki += 0.01;
+							}else if(parameter_select == 3){
+								Kd += 0.1;
+							}
+
+						}
+
+						if(input_statuses.bt3 == 1){
+							if(parameter_select == 1){
+								if(Kp > 0){
+									Kp -= 1;
+								}
+							}else if(parameter_select == 2){
+								if(Ki > 0){
+									Ki -= 0.01;
+								}
+							}else if(parameter_select == 3){
+								if(Ki > 0){
+									Kd -= 0.1;
+								}
+							}
+						}
+						xil_printf("SW0: %d SW1: %d SW2: %d SW3: %d\n", input_statuses.sw0,
+								input_statuses.sw1, input_statuses.sw2, input_statuses.sw3);
+						xil_printf("BT0: %d BT1: %d BT2: %d BT3: %d\n", input_statuses.bt0,
+								input_statuses.bt1, input_statuses.bt2, input_statuses.bt3);
+						// Prints PID values to console
+						xil_printf("PID values are:\n");
+						xil_printf("Kp: %f Ki: %f Kd: %f\n", Kp, Ki, Kd);
+					}
+
+					vTaskDelay(ms100);
+				}
+			}
+			else {
+				// Semaphore couldn't be taken.
+				// TODO Handle semaphore not taken
+			}
 		}
-	}
-	// If third or fourth button is pressed changes selected PID value up or down
-	// Changes Kp +-1, Ki +- 0.01, Kd +- 0,1
-	if (inputs->bt2 == 1) {
-		*(configPtr + *parameter_select) += 0.1;
-	}
-
-	if (inputs->bt3 == 1) {
-		if (*(configPtr + *parameter_select) - 0.1 >= 0) {
-			*(configPtr + *parameter_select) -= 0.1;
-		}
-	}
-
-	// Prints PID values to console
-	if (inputs->bt2 || inputs->bt3) {
-		xil_printf("PID values changed:\n");
-		printf("Kp: %f. Ki: %f. Kd: %f. \n", converterConfig.Kp,
-				converterConfig.Ki, converterConfig.Kd);
 	}
 }
 
@@ -299,50 +282,54 @@ static void Configure(INPUT_STATUS_T *inputs, char *parameter_select) {
  */
 static void tModulate(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
-
+	
 	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
 	float PID_out = 0;
 	float voltage = 0;
+	
+	while (1) {
+		vTaskDelay(x1second);
+		// read switch
+		u8 read = Xil_In8((AXI_SW_DATA_ADDRESS));
+		// Receive switch value changes through queue.
+		if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
+			// Changes reference voltage according which button is pressed
+			if(input_statuses.bt2 == 1){
+				voltageRef += 1;
+			}else if(input_statuses.bt3 == 1){
+				voltageRef -= 1;
+			}
+		}
+		// Calculates PID output
+		PID_out = PID(Kp, Ki, Kd, voltageRef, voltage, saturation_limit);
 
-	vTaskDelay(x1second);
-	//TODO: make a secondary queue with values only for modulation. Then this can be uncommented and updated.
-	// Queues can have only one reader.
-//		// Receive switch value changes through queue.
-//		if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
-//			// Changes reference voltage according which button is pressed
-//			if (input_statuses.bt2 == 1) {
-//				converterConfig.voltageRef += 1;
-//			} else if (input_statuses.bt3 == 1) {
-//				converterConfig.voltageRef -= 1;
-//			}
-//		}
-//		// Calculates PID output
-//		PID_out = PID(converterConfig.Kp, converterConfig.Ki,
-//				converterConfig.Kd, converterConfig.voltageRef, voltage,
-//				converterConfig.saturationLimit);
-//
-//		// Calculate converter output
-//		// TODO check converter model usage
-//		voltage = model(PID_out);
-//		// how we print it to console?
-//		// like this?: xil_printf("u3: %f\n", voltage);
-//
-//		// Show voltage output as a percentage of max voltage
-//		led_set_duty(RED, (int) (voltage / MAX_VOLTAGE));
-	vTaskDelete( NULL);
+		// Calculate converter output
+		// TODO check converter model usage
+		voltage = model(PID_out);
+		// how we print it to console?
+		// like this?: xil_printf("u3: %f\n", voltage);
+
+		// Show voltage output as a percentage of max voltage
+		led_set_duty(RED, (int) (voltage/MAX_VOLTAGE));
+	}
 }
 
-static void createIdleTask() {
-	xTaskCreate(tIdle, (const char *) IDLE_TASK_NAME,
-	configMINIMAL_STACK_SIZE,
-	NULL,
-	tskIDLE_PRIORITY, &tIdleHandle);
-}
 
-static void createModulatingTask() {
-	xTaskCreate(tModulate, (const char *) MODULATING_TASK_NAME,
-	configMINIMAL_STACK_SIZE,
-	NULL,
-	tskIDLE_PRIORITY, &tModulateHandle);
+// State change handler
+static void tState(void *pvParameters) {
+	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	// Receive switch value changes through queue.
+	if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
+		// If first button pressed
+		if (input_statuses.bt0 == 1) {
+			// Check for console usage
+			// TODO Check for console usage with semaphore
+			// Change state
+			stateVar++;
+			if (stateVar >= MAX_STATES) {
+				stateVar = 0;
+			}
+		}
+		// TODO state changes from console
+	}
 }
-
