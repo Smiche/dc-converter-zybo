@@ -99,6 +99,7 @@ static TaskHandle_t tStateHandle;
 SemaphoreHandle_t modeSemaphore;
 SemaphoreHandle_t confSemaphore;
 static char MODE = IDLE;
+char modeChanged = 0;
 
 CONVERTER_CONFIG_T converterConfig = { 0, 0, 0, 0, 50 };
 
@@ -179,7 +180,7 @@ static void tStateControl(void *pvParameters) {
 	char xStatus = 0;
 	unsigned char modeCounter = 0; // 0-255 with overflow
 	MODE = 0;
-	char modeChanged = 1;
+	modeChanged = 1;
 
 	for (;;) {
 		/* If semaphore is null or cannot be taken, skip iteration. */
