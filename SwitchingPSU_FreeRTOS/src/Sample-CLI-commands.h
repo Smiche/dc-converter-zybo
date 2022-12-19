@@ -358,11 +358,11 @@ static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 	pcPIDvalParameter = FreeRTOS_CLIGetParameter(pcCommandString, 2,
 			&xParameter2StringLength);
 	if (strcmp(pcPIDkeyParameter, "Ki") == 0) {
-		// adjust Ki
+		converterConfig.Ki = pcPIDvalParameter;
 	} else if (strcmp(pcPIDkeyParameter, "Kd") == 0) {
-		// adjust Kd
+		converterConfig.Kd = pcPIDvalParameter;
 	} else if (strcmp(pcPIDkeyParameter, "Kp") == 0) {
-		// Adjust Kp
+		converterConfig.Kp = pcPIDvalParameter;
 	}
 	return pdFALSE;
 }
@@ -378,9 +378,15 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 	pcVoltageParameter = FreeRTOS_CLIGetParameter(pcCommandString, 1,
 			&xParameterStringLength);
 
-	// TODO change voltageref according to the given parameter
-	// Temporary printing out the given state
-	xil_printf("%s\n", pcVoltageParameter);
+	/* Change voltageref */
+	converterConfig.voltageRef = pcVoltageParameter;
+
+	/* Print the new mode. */
+	memset(pcWriteBuffer, 0x00, xWriteBufferLen);
+	strncat(pcWriteBuffer, (char *) pcVoltageParameter,
+			(size_t) xParameterStringLength);
+	strncat(pcWriteBuffer, "\r\n", strlen("\r\n"));
+
 	return pdFALSE;
 }
 
