@@ -106,14 +106,16 @@ void led_set_duty_individual(XTtcPs * colorTTC, int duty) {
 /**
  * Set LED to ON/OFF
  */
-void set_led(int led_pos, enum led_status status) {
+void set_led(int value) {
+	LED_STATUS_T led_status = { .bits = value };
 	// Read current LED values
-	u8 read = Xil_In8((AXI_LED_DATA_ADDRESS));
-
-	// Change bit at LED address to 0/1
-	if (status == up) {
-		Xil_Out8((AXI_LED_DATA_ADDRESS), (read | 1 << led_pos));
-	} else {
-		Xil_Out8((AXI_LED_DATA_ADDRESS), (read & ~(1 << led_pos)));
-	}
+//	u8 read = Xil_In8((AXI_LED_DATA_ADDRESS));
+//
+//	// Change bit at LED address to 0/1
+//	if (status == up) {
+//		Xil_Out8((AXI_LED_DATA_ADDRESS), (read | 1 << led_pos));
+//	} else {
+//		Xil_Out8((AXI_LED_DATA_ADDRESS), (read & ~(1 << led_pos)));
+//	}
+	Xil_Out8((AXI_LED_DATA_ADDRESS), led_status.bits);
 }

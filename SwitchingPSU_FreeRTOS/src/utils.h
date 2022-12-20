@@ -10,13 +10,17 @@
   (byte & 0x02 ? '1' : '0'), \
   (byte & 0x01 ? '1' : '0')
 
-typedef struct CONVERTER_CONFIG {
+typedef struct PID_CONFIG {
 	float Kp;
 	float Ki;
 	float Kd;
+} PID_CONFIG_T;
+
+typedef struct MODULATION_CONFIG {
 	float voltageRef;
 	float saturationLimit;
-} CONVERTER_CONFIG_T;
+	char debugModulation;
+} MODULATION_CONFIG_T;
 
 /* Values for state variable */
 #define IDLE 0

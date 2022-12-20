@@ -52,12 +52,19 @@ void task_input_watch(void *pvParameters) {
 			input_statuses.sw2 = sw_values >> 2 & 1;
 			input_statuses.sw3 = sw_values >> 3 & 1;
 
-			input_statuses.bt0 = bt_values & 1;				// Mode select (idle, configuration, modulate)
-			input_statuses.bt1 = bt_values >> 1 & 1;		// Parameter select (Kp, Ki, Kd) (only in configuration mode)
-			input_statuses.bt2 = bt_values >> 2 & 1;		// Decrease selected parameters value (only in configuration mode)
-			input_statuses.bt3 = bt_values >> 3 & 1;		// Increase selected parameters value (only in configuration mode)
+			input_statuses.bt0 = bt_values & 1;	// Mode select (idle, configuration, modulate)
+			input_statuses.bt1 = bt_values >> 1 & 1;// Parameter select (Kp, Ki, Kd) (only in configuration mode)
+			input_statuses.bt2 = bt_values >> 2 & 1;// Decrease selected parameters value (only in configuration mode)
+			input_statuses.bt3 = bt_values >> 3 & 1;// Increase selected parameters value (only in configuration mode)
 
-			xQueueSend(inputs_status_queue, &input_statuses, 10);
+			if (xQueueSend(inputs_status_queue, &input_statuses,
+					pdMS_TO_TICKS(200UL)) ==
+			errQUEUE_FULL) {
+				// If the Control task is busy switching tasks the queue might get filled.
+				// This will clear the queue from previous inputs.
+				xil_printf("Inputs queue is full. Resetting the queue.");
+				xQueueReset(inputs_status_queue);
+			}
 			// save the changes locally
 			last_sw_values = sw_values;
 			last_bt_values = bt_values;

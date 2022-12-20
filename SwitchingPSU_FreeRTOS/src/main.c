@@ -56,6 +56,7 @@
 #define TIMER_ID	1
 #define DELAY_10_SECONDS	10000UL
 #define DELAY_1_SECOND		1000UL
+#define DELAY_100_MS		100UL
 #define TIMER_CHECK_THRESHOLD	9
 #define mainUART_COMMAND_CONSOLE_STACK_SIZE	( configMINIMAL_STACK_SIZE * 3UL )
 #define mainUART_COMMAND_CONSOLE_TASK_PRIORITY	( tskIDLE_PRIORITY )
@@ -68,7 +69,9 @@ static void tIdle(void *pvParameters);
 static void tStateControl(void *pvParameters);
 static void tModulate(void *pvParameters);
 // Method handling Configuration mode.
-static void Configure(INPUT_STATUS_T *inputs, char *parameter_select);
+static void ConfigurePID(INPUT_STATUS_T *inputs,
+		unsigned char *parameter_select);
+static void ConfigureMOD(INPUT_STATUS_T *inputs);
 
 static void createIdleTask();
 static void createModulatingTask();
@@ -87,20 +90,14 @@ static TaskHandle_t tModulateHandle;
 static TaskHandle_t tSWInputHandle;
 static TaskHandle_t tStateHandle;
 
-/*
- * Global program variables
- *
- * modeSemaphore is for the tasks idle, conf, modulate. Needs some way to make sure
- * that correct task gets the semaphore and at mode change passes the semaphore for
- * the next mode to be ran.
- *
- * confSemaphore is a semaphore for the configuration with buttons or serial.
+/**
+ * Semaphore guarding the modulationConfig struct.
  */
-SemaphoreHandle_t modeSemaphore;
-SemaphoreHandle_t confSemaphore;
+SemaphoreHandle_t modulationConfSemaphore;
 static char MODE = IDLE;
 
-CONVERTER_CONFIG_T converterConfig = { 0, 0, 0, 0, 50 };
+PID_CONFIG_T pidConfig = { 0, 0, 0 };
+MODULATION_CONFIG_T modulationConfig = { 0, 50, 0 };
 
 int init() {
 	int Status;
@@ -136,17 +133,13 @@ int init() {
 	}
 
 	/*
-	 * Create semaphores
+	 * Create semaphore
 	 */
-	modeSemaphore = xSemaphoreCreateBinary();
-	if (modeSemaphore == NULL) {
+	modulationConfSemaphore = xSemaphoreCreateBinary();
+	if (modulationConfSemaphore == NULL) {
 		// TODO Handle failure in semaphore creation
 	} else {
-		xSemaphoreGive(modeSemaphore);
-	}
-	confSemaphore = xSemaphoreCreateBinary();
-	if (confSemaphore == NULL) {
-		// TODO Handle failure in semaphore creation
+		xSemaphoreGive(modulationConfSemaphore);
 	}
 
 	return Status;
@@ -175,67 +168,67 @@ static void tStateControl(void *pvParameters) {
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
 
 	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	char parameter_select = 1;
+	unsigned char parameter_select = 1;
 	char xStatus = 0;
 	unsigned char modeCounter = 0; // 0-255 with overflow
-	MODE = 0;
+	MODE = IDLE;
 	char modeChanged = 1;
 
-	for (;;) {
-		/* If semaphore is null or cannot be taken, skip iteration. */
-		if (modeSemaphore == NULL
-				|| xSemaphoreTake(modeSemaphore, (TickType_t) 10) != pdTRUE) {
-			vTaskDelay(ms100);
-			continue;
+	while (1) {
+		// Receive switch value changes through queue.
+		xStatus = xQueueReceive(inputs_status_queue, &input_statuses, 50);
+		vTaskDelay(ms100);
+
+		// mode switching is always possible
+		if (input_statuses.bt0) {
+			modeCounter++;
+			MODE = modeCounter % MAX_STATES; // limit mode to 2
+			modeChanged = 1;
+			// Giving some time for task loops to exit before starting new tasks.
+			// Tasks must exit within this time.
+			vTaskDelay(x1second);
+			xil_printf("Mode changed to: %d \n", MODE);
 		}
 
-		while (1) {
-			// Receive switch value changes through queue.
-			xStatus = xQueueReceive(inputs_status_queue, &input_statuses, 50);
-			vTaskDelay(ms100);
-
-			if (input_statuses.bt0) {
-				modeCounter++;
-				MODE = modeCounter % MAX_STATES; // limit mode to 2
-				modeChanged = 1;
-				// Giving some time for task loops to exit before starting new tasks.
-				vTaskDelay(x1second);
-			}
-
-			if (modeChanged) {
-				xil_printf("Mode changed to: %d", MODE);
-			}
-
-			switch (MODE) {
-			case IDLE:
-				if (!modeChanged) {
-					break;
-				}
-
-				createIdleTask();
-
-				break;
-			case CONFIGURING:
-				// Check if any input is present, then pass to Configure
-				if (xStatus == pdPASS) {
-					Configure(&input_statuses, &parameter_select);
-					vTaskDelay(ms100);
-				}
-				break;
-			case MODULATING:
-				if (modeChanged) {
-					break;
-				}
-
-				createModulatingTask();
-
-				break;
-			default:
-				xil_printf("Uknown state reached.");
-			}
-
-			modeChanged = 0;
+		// display current mode with the green LEDs too
+		if (modeChanged) {
+			set_led(1 << MODE);
 		}
+
+		switch (MODE) {
+		case IDLE:
+			if (!modeChanged) {
+				break;
+			}
+
+			createIdleTask();
+
+			break;
+		case CONFIGURING:
+			// Check if any input is present, then pass to Configure
+			if (xStatus == pdPASS) {
+				ConfigurePID(&input_statuses, &parameter_select);
+				vTaskDelay(ms100);
+			}
+			break;
+		case MODULATING:
+			// Check if any input is present, then update modulation config
+			if (xStatus == pdPASS) {
+				ConfigureMOD(&input_statuses);
+			}
+
+			if (!modeChanged) {
+				break;
+			}
+
+			createModulatingTask();
+
+			break;
+		default:
+			xil_printf("Uknown state reached. \n");
+		}
+
+		modeChanged = 0;
 	}
 
 }
@@ -262,15 +255,13 @@ static void tIdle(void *pvParameters) {
  *
  * Reference voltage can be adjusted only from console
  */
-static void Configure(INPUT_STATUS_T *inputs, char *parameter_select) {
-	float * configPtr = &converterConfig.Kp;
+static void ConfigurePID(INPUT_STATUS_T *inputs,
+		unsigned char *parameter_select) {
+	float * configPtr = &pidConfig.Kp;
 
 	if (inputs->bt1 == 1) {
-		if (*parameter_select < 2) {
-			*parameter_select += 1;
-		} else if (*parameter_select == 2) {
-			*parameter_select = 0;
-		}
+		*parameter_select += 1;
+		*parameter_select = *parameter_select % 3;
 	}
 	// If third or fourth button is pressed changes selected PID value up or down
 	// Changes Kp +-1, Ki +- 0.01, Kd +- 0,1
@@ -287,8 +278,8 @@ static void Configure(INPUT_STATUS_T *inputs, char *parameter_select) {
 	// Prints PID values to console
 	if (inputs->bt2 || inputs->bt3) {
 		xil_printf("PID values changed:\n");
-		printf("Kp: %f. Ki: %f. Kd: %f. \n", converterConfig.Kp,
-				converterConfig.Ki, converterConfig.Kd);
+		printf("Kp: %f Ki: %f Kd: %f \n", pidConfig.Kp, pidConfig.Ki,
+				pidConfig.Kd);
 	}
 }
 
@@ -298,38 +289,87 @@ static void Configure(INPUT_STATUS_T *inputs, char *parameter_select) {
  * converter on, uses PID, reference voltage can be adjusted with console?
  */
 static void tModulate(void *pvParameters) {
-	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
+	const TickType_t xHalfSecond = pdMS_TO_TICKS(500UL);
+	const TickType_t x100ms = pdMS_TO_TICKS(DELAY_100_MS);
 
-	INPUT_STATUS_T input_statuses = { 0, 0, 0, 0, 0, 0, 0, 0 };
 	float PID_out = 0;
 	float voltage = 0;
 
-	vTaskDelay(x1second);
-	//TODO: make a secondary queue with values only for modulation. Then this can be uncommented and updated.
-	// Queues can have only one reader.
-//		// Receive switch value changes through queue.
-//		if (xQueueReceive(inputs_status_queue, &input_statuses, 10) == pdTRUE) {
-//			// Changes reference voltage according which button is pressed
-//			if (input_statuses.bt2 == 1) {
-//				converterConfig.voltageRef += 1;
-//			} else if (input_statuses.bt3 == 1) {
-//				converterConfig.voltageRef -= 1;
-//			}
-//		}
-//		// Calculates PID output
-//		PID_out = PID(converterConfig.Kp, converterConfig.Ki,
-//				converterConfig.Kd, converterConfig.voltageRef, voltage,
-//				converterConfig.saturationLimit);
-//
-//		// Calculate converter output
-//		// TODO check converter model usage
-//		voltage = model(PID_out);
-//		// how we print it to console?
-//		// like this?: xil_printf("u3: %f\n", voltage);
-//
-//		// Show voltage output as a percentage of max voltage
-//		led_set_duty(RED, (int) (voltage / MAX_VOLTAGE));
+	while (MODE == MODULATING) {
+		// check that modulation conf semaphore exists
+		if (modulationConfSemaphore == NULL) {
+			vTaskDelay(x100ms);
+			continue;
+		}
+
+		if ( xSemaphoreTake(modulationConfSemaphore,
+				(TickType_t ) 100) == pdTRUE) {
+
+			// Calculates PID output
+			PID_out = PID(pidConfig.Kp, pidConfig.Ki, pidConfig.Kd,
+					modulationConfig.voltageRef, voltage,
+					modulationConfig.saturationLimit);
+
+			// Calculate converter output
+			// TODO check converter model usage
+			voltage = model(PID_out);
+			// how we print it to console?
+			// like this?: xil_printf("u3: %f\n", voltage);
+
+			// debug print, can be used to plot a graph from serial output
+			if (modulationConfig.debugModulation) {
+				printf("$%f %f;", voltage, PID_out);
+			}
+
+			// Show voltage output as a percentage of max voltage
+			led_set_duty(RED, (voltage / (float) MAX_VOLTAGE) * 100);
+			xSemaphoreGive(modulationConfSemaphore);
+		} else {
+			xil_printf(
+					"Unable to change modulation config. Resource is busy. Will retry in half a second.");
+			vTaskDelay(xHalfSecond);
+		}
+
+	}
+
 	vTaskDelete( NULL);
+}
+
+void ConfigureMOD(INPUT_STATUS_T *inputs) {
+	// check if semaphore exists
+	if (modulationConfSemaphore == NULL) {
+		return;
+	}
+
+	if ( xSemaphoreTake( modulationConfSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+		/* We were able to obtain the semaphore and can now access the
+		 shared resource. */
+
+		if (inputs->bt2 == 1) {
+			modulationConfig.voltageRef += 0.5;
+		} else if (inputs->bt3 == 1) {
+			modulationConfig.voltageRef -= 0.5;
+		}
+
+		if (inputs->sw0 == 1) {
+			xil_printf("Enabling modulation debug prints.");
+			modulationConfig.debugModulation = 1;
+		} else {
+			modulationConfig.debugModulation = 0;
+		}
+
+		if (inputs->bt2 || inputs->bt3) {
+			printf("Reference voltage changed to: %f \n",
+					modulationConfig.voltageRef);
+		}
+		/* We have finished accessing the shared resource.  Release the
+		 semaphore. */
+		xSemaphoreGive(modulationConfSemaphore);
+	} else {
+		/* We could not obtain the semaphore and can therefore not access
+		 the shared resource safely. */
+		xil_printf("Unable to change modulation config. Resource is busy.");
+	}
 }
 
 static void createIdleTask() {
