@@ -334,28 +334,26 @@ static BaseType_t prvStateCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 	 * Change state according to the given parameter
 	 * State parameters are idle, conf, modulate
 	 */
-	if ((int) pcStateParameter == 0 || (int) pcStateParameter == 1 || (int) pcStateParameter == 2) {
-		MODE = pcStateParameter;
-		modeChanged = 1;
+	if ((int) pcStateParameter == 0 || (int) pcStateParameter == 1
+			|| (int) pcStateParameter == 2) {
+		//TODO: handle these separately with a semaphore used in the tStateControl task. Should make a separate struct for configuration from console.
+		//MODE = pcStateParameter;
+		//modeChanged = 1;
 
 		/* Print the new mode. */
 		memset(pcWriteBuffer, 0x00, xWriteBufferLen);
 		strncat(pcWriteBuffer, (char *) pcStateParameter,
 				(size_t) xParameterStringLength);
 		strncat(pcWriteBuffer, "\r\n", strlen("\r\n"));
-	}
-	else {
+	} else {
 		/* Print unknown mode error  */
 		char err_msg[] = "Mode should be one of these: 0, 1, 2.\nUnknown mode: ";
 		memset(pcWriteBuffer, 0x00, xWriteBufferLen);
-		strncat(pcWriteBuffer, (char *) err_msg,
-				(size_t) err_msg);
+		strncat(pcWriteBuffer, (char *) err_msg, (size_t) err_msg);
 		strncat(pcWriteBuffer, (char *) pcStateParameter,
 				(size_t) xParameterStringLength);
 		strncat(pcWriteBuffer, "\r\n", strlen("\r\n"));
 	}
-
-
 
 	return pdFALSE;
 }
@@ -374,12 +372,14 @@ static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 
 	pcPIDvalParameter = FreeRTOS_CLIGetParameter(pcCommandString, 2,
 			&xParameter2StringLength);
+
+	//TODO: handle these separately with a semaphore used in the tStateControl task. Should make a separate struct for configuration from console.
 	if (strcmp(pcPIDkeyParameter, "Ki") == 0) {
-		converterConfig.Ki = pcPIDvalParameter;
+		//converterConfig.Ki = pcPIDvalParameter;
 	} else if (strcmp(pcPIDkeyParameter, "Kd") == 0) {
-		converterConfig.Kd = pcPIDvalParameter;
+		//converterConfig.Kd = pcPIDvalParameter;
 	} else if (strcmp(pcPIDkeyParameter, "Kp") == 0) {
-		converterConfig.Kp = pcPIDvalParameter;
+		//converterConfig.Kp = pcPIDvalParameter;
 	}
 	return pdFALSE;
 }
@@ -395,8 +395,9 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 	pcVoltageParameter = FreeRTOS_CLIGetParameter(pcCommandString, 1,
 			&xParameterStringLength);
 
+	//TODO: handle these separately with a semaphore used in the tStateControl task. Should make a separate struct for configuration from console.
 	/* Change voltageref */
-	converterConfig.voltageRef = pcVoltageParameter;
+	//converterConfig.voltageRef = pcVoltageParameter;
 
 	/* Print the new mode. */
 	memset(pcWriteBuffer, 0x00, xWriteBufferLen);
