@@ -96,6 +96,11 @@ static TaskHandle_t tStateHandle;
 SemaphoreHandle_t modulationConfSemaphore;
 static char MODE = IDLE;
 
+/*
+ * Semaphore guarding the pidConfig struct
+ */
+SemaphoreHandle_t pidConfSemaphore;
+
 PID_CONFIG_T pidConfig = { 0, 0, 0 };
 MODULATION_CONFIG_T modulationConfig = { 0, 50, 0 };
 
@@ -312,7 +317,6 @@ static void tModulate(void *pvParameters) {
 			xSemaphoreGive(modulationConfSemaphore);
 
 			// Calculate converter output
-			// TODO check converter model usage
 			voltage = model(PID_out);
 			// how we print it to console?
 			// like this?: xil_printf("u3: %f\n", voltage);
