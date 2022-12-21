@@ -43,6 +43,7 @@
 
 /* FreeRTOS+CLI includes. */
 #include "FreeRTOS_CLI.h"
+#include "main.h"
 
 #ifndef  configINCLUDE_TRACE_RELATED_CLI_COMMANDS
 #define configINCLUDE_TRACE_RELATED_CLI_COMMANDS 0
@@ -434,7 +435,7 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 
 			/* Print the new mode. */
 			memset(pcWriteBuffer, 0x00, xWriteBufferLen);
-			strncat(pcWriteBuffer, (char *) pcStateParameter,
+			strncat(pcWriteBuffer, (char *) pcVoltageParameter,
 					(size_t) xParameterStringLength);
 			strncat(pcWriteBuffer, "\r\n", strlen("\r\n"));
 		} else {

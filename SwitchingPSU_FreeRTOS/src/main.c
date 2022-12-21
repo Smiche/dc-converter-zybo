@@ -48,9 +48,11 @@
 #include <zynq_registers.h> // Defines hardware registers
 #include "led.h"
 #include "inputs.h"
-#include "utils.h"
+
 #include "PID.h"
 #include "converter.h"
+
+#include "main.h"
 
 /*** Global Variables ***/
 #define TIMER_ID	1

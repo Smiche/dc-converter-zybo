@@ -1,3 +1,6 @@
+#ifndef UTILS_H__
+#define UTILS_H__
+
 #define DEBUG_ENABLED 0
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c\n"
 #define BYTE_TO_BINARY(byte)  \
@@ -27,3 +30,5 @@ typedef struct MODULATION_CONFIG {
 #define CONFIGURING 1
 #define MODULATING 2
 #define MAX_STATES 3
+
+#endif
