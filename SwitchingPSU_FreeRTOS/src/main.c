@@ -151,7 +151,7 @@ int main(void) {
 	xTaskCreate(tStateControl, (const char *) "StateController",
 	configMINIMAL_STACK_SIZE * 2, // Double stack size for printf
 	NULL,
-	tskIDLE_PRIORITY + 1, &tStateHandle);
+	tskIDLE_PRIORITY + 2, &tStateHandle);
 
 	xTaskCreate(task_input_watch, (const char *) "SwIO",
 	configMINIMAL_STACK_SIZE,
@@ -309,6 +309,7 @@ static void tModulate(void *pvParameters) {
 			PID_out = PID(pidConfig.Kp, pidConfig.Ki, pidConfig.Kd,
 					modulationConfig.voltageRef, voltage,
 					modulationConfig.saturationLimit);
+			xSemaphoreGive(modulationConfSemaphore);
 
 			// Calculate converter output
 			// TODO check converter model usage
@@ -318,12 +319,14 @@ static void tModulate(void *pvParameters) {
 
 			// debug print, can be used to plot a graph from serial output
 			if (modulationConfig.debugModulation) {
-				printf("$%f %f;", voltage, PID_out);
+				char buf[16];
+				sprintf(buf, "$%.3f %.3f;", voltage, PID_out);
+				xil_printf(buf);
 			}
 
 			// Show voltage output as a percentage of max voltage
 			led_set_duty(RED, (voltage / (float) MAX_VOLTAGE) * 100);
-			xSemaphoreGive(modulationConfSemaphore);
+			vTaskDelay(x100ms);
 		} else {
 			xil_printf(
 					"Unable to change modulation config. Resource is busy. Will retry in half a second.");
@@ -381,8 +384,8 @@ static void createIdleTask() {
 
 static void createModulatingTask() {
 	xTaskCreate(tModulate, (const char *) MODULATING_TASK_NAME,
-	configMINIMAL_STACK_SIZE,
+	configMINIMAL_STACK_SIZE * 2,
 	NULL,
-	tskIDLE_PRIORITY, &tModulateHandle);
+	tskIDLE_PRIORITY + 1, &tModulateHandle);
 }
 
