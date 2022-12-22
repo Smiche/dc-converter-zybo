@@ -93,6 +93,12 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		const char *pcCommandString);
 
+/*
+ *
+ */
+static BaseType_t prvSaturationCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
+		const char *pcCommandString);
+
 /* --- Command initializations ---*/
 
 /* Structure that defines the "task-stats" command line command.  This generates
@@ -125,12 +131,20 @@ static const CLI_Command_Definition_t xParameterEcho =
 		};
 
 /*
- * Console command definition for state change
+ * Console command definition for voltage change
  */
 static const CLI_Command_Definition_t xVoltageCommand =
 		{ "voltage",
 				"\r\nvoltage <reference value>: Changes current reference value to <reference value>.\r\n",
 				prvVoltageCommand, 1 };
+
+/*
+ * Console command definition for saturation change
+ */
+static const CLI_Command_Definition_t xSaturationCommand =
+		{ "saturation",
+				"\r\nsaturation <saturation limit>: Changes current saturation limit to <saturation limit>.\r\n",
+				prvSaturationCommand, 1 };
 
 /*
  * Console command definition for state change
@@ -157,6 +171,7 @@ void vRegisterSampleCLICommands(void) {
 	FreeRTOS_CLIRegisterCommand(&xStateCommand);
 	FreeRTOS_CLIRegisterCommand(&xPIDCommand);
 	FreeRTOS_CLIRegisterCommand(&xVoltageCommand);
+	FreeRTOS_CLIRegisterCommand(&xSaturationCommand);
 
 }
 /*-----------------------------------------------------------*/
@@ -502,7 +517,7 @@ static BaseType_t prvSaturationCommand(char *pcWriteBuffer, size_t xWriteBufferL
 		 */
 		memset(pcWriteBuffer, 0x00, xWriteBufferLen);
 		strncat(pcWriteBuffer, "Unable to change modulation config. Resource is busy.\r\n",
-				strlen("Unable to change modulation config. Resource is busy.\r\n"));
+		strlen("Unable to change modulation config. Resource is busy.\r\n"));
 
 	}
 	return pdFALSE;
