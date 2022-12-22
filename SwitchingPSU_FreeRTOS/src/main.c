@@ -156,7 +156,7 @@ int main(void) {
 	init();
 
 	xTaskCreate(tStateControl, (const char *) "StateController",
-	configMINIMAL_STACK_SIZE * 2, // Double stack size for printf
+	configMINIMAL_STACK_SIZE * 2, // Double stack size for sprintf
 	NULL,
 	tskIDLE_PRIORITY + 2, &tStateHandle);
 
@@ -171,6 +171,7 @@ int main(void) {
 
 /*-----------------------------------------------------------*/
 static void tStateControl(void *pvParameters) {
+	const TickType_t ms50 = pdMS_TO_TICKS(50UL);
 	const TickType_t ms100 = pdMS_TO_TICKS(100UL);
 	const TickType_t x1second = pdMS_TO_TICKS(DELAY_1_SECOND);
 
@@ -184,7 +185,7 @@ static void tStateControl(void *pvParameters) {
 	while (1) {
 		// Receive switch value changes through queue.
 		xStatus = xQueueReceive(inputs_status_queue, &input_statuses, 50);
-		vTaskDelay(ms100);
+		vTaskDelay(ms50);
 
 		// mode switching is always possible
 		if (input_statuses.bt0) {
@@ -215,7 +216,7 @@ static void tStateControl(void *pvParameters) {
 			// Check if any input is present, then pass to Configure
 			if (xStatus == pdPASS) {
 				ConfigurePID(&input_statuses, &parameter_select);
-				vTaskDelay(ms100);
+				vTaskDelay(ms50);
 			}
 			break;
 		case MODULATING:
@@ -266,27 +267,31 @@ static void ConfigurePID(INPUT_STATUS_T *inputs,
 		unsigned char *parameter_select) {
 	float * configPtr = &pidConfig.Kp;
 
+	// Update values in the struct based on which button was pressed.
+	// Updating values using a pointer to avoid repetitive ifs
 	if (inputs->bt1 == 1) {
 		*parameter_select += 1;
 		*parameter_select = *parameter_select % 3;
 	}
-	// If third or fourth button is pressed changes selected PID value up or down
-	// Changes Kp +-1, Ki +- 0.01, Kd +- 0,1
+
 	if (inputs->bt2 == 1) {
-		*(configPtr + *parameter_select) += 0.1;
+		*(configPtr + *parameter_select) += 0.01;
 	}
 
 	if (inputs->bt3 == 1) {
-		if (*(configPtr + *parameter_select) - 0.1 >= 0) {
-			*(configPtr + *parameter_select) -= 0.1;
+		if (*(configPtr + *parameter_select) - 0.01 >= 0) {
+			*(configPtr + *parameter_select) -= 0.01;
+		} else {
+			*(configPtr + *parameter_select) = 0;
 		}
 	}
 
 	// Prints PID values to console
 	if (inputs->bt2 || inputs->bt3) {
-		xil_printf("PID values changed:\n");
-		printf("Kp: %f Ki: %f Kd: %f \n", pidConfig.Kp, pidConfig.Ki,
-				pidConfig.Kd);
+		char buf[54];
+		sprintf(buf, "PID Config changed: Kp: %.2f Ki: %.2f Kd: %.2f \n",
+				pidConfig.Kp, pidConfig.Ki, pidConfig.Kd);
+		xil_printf(buf);
 	}
 }
 
@@ -368,8 +373,10 @@ void ConfigureMOD(INPUT_STATUS_T *inputs) {
 		}
 
 		if (inputs->bt2 || inputs->bt3) {
-			printf("Reference voltage changed to: %f \n",
+			char buf[42];
+			sprintf(buf, "Reference voltage changed to: %.3f \n",
 					modulationConfig.voltageRef);
+			xil_printf(buf);
 		}
 		/* We have finished accessing the shared resource.  Release the
 		 semaphore. */

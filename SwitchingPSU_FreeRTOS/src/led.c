@@ -15,7 +15,7 @@ typedef struct {
 } TmrCntrSetup;
 
 #define	TICK_TIMER_FREQ_HZ	100  /* Tick timer counter's output frequency */
-static TmrCntrSetup SettingsTable = { TICK_TIMER_FREQ_HZ, 1000, 0,
+static TmrCntrSetup SettingsTable = { TICK_TIMER_FREQ_HZ, 65535, 0,
 XTTCPS_OPTION_MATCH_MODE | XTTCPS_OPTION_WAVE_POLARITY };
 TmrCntrSetup *TimerSetup = &SettingsTable; // Settings instance pointer.
 static XTtcPs rTTC, gTTC, bTTC;
@@ -108,14 +108,5 @@ void led_set_duty_individual(XTtcPs * colorTTC, int duty) {
  */
 void set_led(int value) {
 	LED_STATUS_T led_status = { .bits = value };
-	// Read current LED values
-//	u8 read = Xil_In8((AXI_LED_DATA_ADDRESS));
-//
-//	// Change bit at LED address to 0/1
-//	if (status == up) {
-//		Xil_Out8((AXI_LED_DATA_ADDRESS), (read | 1 << led_pos));
-//	} else {
-//		Xil_Out8((AXI_LED_DATA_ADDRESS), (read & ~(1 << led_pos)));
-//	}
 	Xil_Out8((AXI_LED_DATA_ADDRESS), led_status.bits);
 }
