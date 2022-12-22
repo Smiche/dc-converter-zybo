@@ -264,29 +264,48 @@ static void tIdle(void *pvParameters) {
  */
 static void ConfigurePID(INPUT_STATUS_T *inputs,
 		unsigned char *parameter_select) {
-	float * configPtr = &pidConfig.Kp;
-
-	if (inputs->bt1 == 1) {
-		*parameter_select += 1;
-		*parameter_select = *parameter_select % 3;
-	}
-	// If third or fourth button is pressed changes selected PID value up or down
-	// Changes Kp +-1, Ki +- 0.01, Kd +- 0,1
-	if (inputs->bt2 == 1) {
-		*(configPtr + *parameter_select) += 0.1;
+	// Check if pid conf semaphore exists
+	if (pidConfSemaphore == NULL) {
+		vTaskDelay(x100ms);
+		return;
 	}
 
-	if (inputs->bt3 == 1) {
-		if (*(configPtr + *parameter_select) - 0.1 >= 0) {
-			*(configPtr + *parameter_select) -= 0.1;
+	if ( xSemaphoreTake( modulationConfSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+			/* We were able to obtain the semaphore and can now access the
+			 shared resource. */
+
+		float * configPtr = &pidConfig.Kp;
+
+		if (inputs->bt1 == 1) {
+			*parameter_select += 1;
+			*parameter_select = *parameter_select % 3;
 		}
-	}
+		// If third or fourth button is pressed changes selected PID value up or down
+		// Changes Kp +-1, Ki +- 0.01, Kd +- 0,1
+		if (inputs->bt2 == 1) {
+			*(configPtr + *parameter_select) += 0.1;
+		}
 
-	// Prints PID values to console
-	if (inputs->bt2 || inputs->bt3) {
-		xil_printf("PID values changed:\n");
-		printf("Kp: %f Ki: %f Kd: %f \n", pidConfig.Kp, pidConfig.Ki,
-				pidConfig.Kd);
+		if (inputs->bt3 == 1) {
+			if (*(configPtr + *parameter_select) - 0.1 >= 0) {
+				*(configPtr + *parameter_select) -= 0.1;
+			}
+		}
+
+		// Prints PID values to console
+		if (inputs->bt2 || inputs->bt3) {
+			xil_printf("PID values changed:\n");
+			printf("Kp: %f Ki: %f Kd: %f \n", pidConfig.Kp, pidConfig.Ki,
+					pidConfig.Kd);
+		}
+		/* We have finished accessing the shared resource.  Release the
+		 semaphore. */
+		xSemaphoreGive(pidConfSemaphore);
+
+	} else {
+		/* We could not obtain the semaphore and can therefore not access
+		 the shared resource safely. */
+		xil_printf("Unable to change modulation config. Resource is busy.");
 	}
 }
 
@@ -309,14 +328,23 @@ static void tModulate(void *pvParameters) {
 			continue;
 		}
 
-		if ( xSemaphoreTake(modulationConfSemaphore,
-				(TickType_t ) 100) == pdTRUE) {
+		// check that pid conf semaphore exists
+		if (pidConfSemaphore == NULL) {
+			vTaskDelay(x100ms);
+			continue;
+		}
+
+		if (( xSemaphoreTake(modulationConfSemaphore,
+				(TickType_t ) 100) == pdTRUE) &&
+				( xSemaphoreTake(pidConfSemaphore,
+						(TickType_t ) 100 ) == pdTRUE)) {
 
 			// Calculates PID output
 			PID_out = PID(pidConfig.Kp, pidConfig.Ki, pidConfig.Kd,
 					modulationConfig.voltageRef, voltage,
 					modulationConfig.saturationLimit);
 			xSemaphoreGive(modulationConfSemaphore);
+			xSemaphoreGive(pidConfSemaphore);
 
 			// Calculate converter output
 			voltage = model(PID_out);
