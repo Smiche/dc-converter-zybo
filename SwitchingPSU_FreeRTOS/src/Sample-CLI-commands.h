@@ -93,6 +93,12 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		const char *pcCommandString);
 
+/*
+ *
+ */
+static BaseType_t prvSaturationCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
+		const char *pcCommandString);
+
 /* --- Command initializations ---*/
 
 /* Structure that defines the "task-stats" command line command.  This generates
@@ -125,12 +131,20 @@ static const CLI_Command_Definition_t xParameterEcho =
 		};
 
 /*
- * Console command definition for state change
+ * Console command definition for voltage change
  */
 static const CLI_Command_Definition_t xVoltageCommand =
 		{ "voltage",
 				"\r\nvoltage <reference value>: Changes current reference value to <reference value>.\r\n",
 				prvVoltageCommand, 1 };
+
+/*
+ * Console command definition for saturation change
+ */
+static const CLI_Command_Definition_t xSaturationCommand =
+		{ "saturation",
+				"\r\nsaturation <saturation limit>: Changes current saturation limit to <saturation limit>.\r\n",
+				prvSaturationCommand, 1 };
 
 /*
  * Console command definition for state change
@@ -157,6 +171,7 @@ void vRegisterSampleCLICommands(void) {
 	FreeRTOS_CLIRegisterCommand(&xStateCommand);
 	FreeRTOS_CLIRegisterCommand(&xPIDCommand);
 	FreeRTOS_CLIRegisterCommand(&xVoltageCommand);
+	FreeRTOS_CLIRegisterCommand(&xSaturationCommand);
 
 }
 /*-----------------------------------------------------------*/
@@ -394,6 +409,7 @@ static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		}else {
 			// TODO: Value not integer, fail.
 		}
+		xSemaphoreGive(pidConfSemaphore);
 	} else {
 		/* We could not obtain the semaphore and can therefore not access
 		 * the shared resource safely.
@@ -441,6 +457,9 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		} else {
 			// TODO: Value not integer, fail.
 		}
+
+		/* Release semaphore */
+		xSemaphoreGive(modulationConfSemaphore);
 	} else {
 		/* We could not obtain the semaphore and can therefore not access
 		 * the shared resource safely.
@@ -453,3 +472,53 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 	return pdFALSE;
 }
 
+/*
+ * Console command for saturation change
+ */
+static BaseType_t prvSaturationCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
+		const char *pcCommandString) {
+	char *pcSaturationParameter;
+	BaseType_t xParameterStringLength;
+
+	pcSaturationParameter = FreeRTOS_CLIGetParameter(pcCommandString, 1,
+			&xParameterStringLength);
+
+	/*
+	 * TODO ready for test: handle these separately with a semaphore used in the tStateControl task.
+	 *  Should make a separate struct for configuration from console.
+	 */
+
+	// check if semaphore exists
+	if (modulationConfSemaphore == NULL) {
+		return;
+	}
+
+	if ( xSemaphoreTake( modulationConfSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+		/* We were able to obtain the semaphore and can now access the
+		 shared resource. */
+
+		if ((int) pcSaturationParameter) {
+			modulationConfig.saturationLimit = (int) pcSaturationParameter;
+
+			/* Print the new mode. */
+			memset(pcWriteBuffer, 0x00, xWriteBufferLen);
+			strncat(pcWriteBuffer, (char *) pcSaturationParameter,
+					(size_t) xParameterStringLength);
+			strncat(pcWriteBuffer, "\r\n", strlen("\r\n"));
+		} else {
+			// TODO: Value not integer, fail.
+		}
+
+		/* Release semaphore */
+		xSemaphoreGive(modulationConfSemaphore);
+	} else {
+		/* We could not obtain the semaphore and can therefore not access
+		 * the shared resource safely.
+		 */
+		memset(pcWriteBuffer, 0x00, xWriteBufferLen);
+		strncat(pcWriteBuffer, "Unable to change modulation config. Resource is busy.\r\n",
+		strlen("Unable to change modulation config. Resource is busy.\r\n"));
+
+	}
+	return pdFALSE;
+}

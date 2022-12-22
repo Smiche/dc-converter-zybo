@@ -233,7 +233,7 @@ static void tStateControl(void *pvParameters) {
 
 			break;
 		default:
-			xil_printf("Uknown state reached. \n");
+			xil_printf("Unknown state reached. \n");
 		}
 
 		modeChanged = 0;
@@ -265,33 +265,44 @@ static void tIdle(void *pvParameters) {
  */
 static void ConfigurePID(INPUT_STATUS_T *inputs,
 		unsigned char *parameter_select) {
-	float * configPtr = &pidConfig.Kp;
+	// Check if pid conf semaphore exists and can be taken
+	if (pidConfSemaphore == NULL
+			&& xSemaphoreTake( pidConfSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+		/* We were able to obtain the semaphore and can now access the
+		 shared resource. */
 
-	// Update values in the struct based on which button was pressed.
-	// Updating values using a pointer to avoid repetitive ifs
-	if (inputs->bt1 == 1) {
-		*parameter_select += 1;
-		*parameter_select = *parameter_select % 3;
-	}
+		float * configPtr = &pidConfig.Kp;
 
-	if (inputs->bt2 == 1) {
-		*(configPtr + *parameter_select) += 0.01;
-	}
-
-	if (inputs->bt3 == 1) {
-		if (*(configPtr + *parameter_select) - 0.01 >= 0) {
-			*(configPtr + *parameter_select) -= 0.01;
-		} else {
-			*(configPtr + *parameter_select) = 0;
+		// Update values in the struct based on which button was pressed.
+		// Updating values using a pointer to avoid repetitive ifs
+		if (inputs->bt1 == 1) {
+			*parameter_select += 1;
+			*parameter_select = *parameter_select % 3;
 		}
-	}
 
-	// Prints PID values to console
-	if (inputs->bt2 || inputs->bt3) {
-		char buf[54];
-		sprintf(buf, "PID Config changed: Kp: %.2f Ki: %.2f Kd: %.2f \n",
-				pidConfig.Kp, pidConfig.Ki, pidConfig.Kd);
-		xil_printf(buf);
+		if (inputs->bt2 == 1) {
+			*(configPtr + *parameter_select) += 0.01;
+		}
+
+		if (inputs->bt3 == 1) {
+			if (*(configPtr + *parameter_select) - 0.01 >= 0) {
+				*(configPtr + *parameter_select) -= 0.01;
+			} else {
+				*(configPtr + *parameter_select) = 0;
+			}
+		}
+		// Prints PID values to console
+		if (inputs->bt2 || inputs->bt3) {
+			char buf[54];
+			sprintf(buf, "PID Config changed: Kp: %.2f Ki: %.2f Kd: %.2f \n",
+					pidConfig.Kp, pidConfig.Ki, pidConfig.Kd);
+			xil_printf(buf);
+		}
+		xSemaphoreGive(pidConfSemaphore);
+	} else {
+		/* We could not obtain the semaphore and can therefore not access
+		 the shared resource safely. */
+		xil_printf("Unable to change pid config. Resource is busy.");
 	}
 }
 
