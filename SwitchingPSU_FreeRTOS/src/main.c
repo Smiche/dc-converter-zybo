@@ -232,7 +232,7 @@ static void tStateControl(void *pvParameters) {
 
 			break;
 		default:
-			xil_printf("Uknown state reached. \n");
+			xil_printf("Unknown state reached. \n");
 		}
 
 		modeChanged = 0;
@@ -270,7 +270,7 @@ static void ConfigurePID(INPUT_STATUS_T *inputs,
 		return;
 	}
 
-	if ( xSemaphoreTake( modulationConfSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+	if ( xSemaphoreTake( pidConfSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
 			/* We were able to obtain the semaphore and can now access the
 			 shared resource. */
 
@@ -305,7 +305,7 @@ static void ConfigurePID(INPUT_STATUS_T *inputs,
 	} else {
 		/* We could not obtain the semaphore and can therefore not access
 		 the shared resource safely. */
-		xil_printf("Unable to change modulation config. Resource is busy.");
+		xil_printf("Unable to change pid config. Resource is busy.");
 	}
 }
 
@@ -328,23 +328,14 @@ static void tModulate(void *pvParameters) {
 			continue;
 		}
 
-		// check that pid conf semaphore exists
-		if (pidConfSemaphore == NULL) {
-			vTaskDelay(x100ms);
-			continue;
-		}
-
-		if (( xSemaphoreTake(modulationConfSemaphore,
-				(TickType_t ) 100) == pdTRUE) &&
-				( xSemaphoreTake(pidConfSemaphore,
-						(TickType_t ) 100 ) == pdTRUE)) {
+		if ( xSemaphoreTake(modulationConfSemaphore,
+				(TickType_t ) 100) == pdTRUE) {
 
 			// Calculates PID output
 			PID_out = PID(pidConfig.Kp, pidConfig.Ki, pidConfig.Kd,
 					modulationConfig.voltageRef, voltage,
 					modulationConfig.saturationLimit);
 			xSemaphoreGive(modulationConfSemaphore);
-			xSemaphoreGive(pidConfSemaphore);
 
 			// Calculate converter output
 			voltage = model(PID_out);
