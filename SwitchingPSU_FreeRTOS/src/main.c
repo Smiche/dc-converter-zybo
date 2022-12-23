@@ -62,7 +62,7 @@
 #define TIMER_CHECK_THRESHOLD	9
 #define mainUART_COMMAND_CONSOLE_STACK_SIZE	( configMINIMAL_STACK_SIZE * 3UL )
 #define mainUART_COMMAND_CONSOLE_TASK_PRIORITY	( tskIDLE_PRIORITY )
-#define MAX_VOLTAGE 100 // TODO value for max voltage should be calculated somehow.
+#define MAX_VOLTAGE 100 // Max voltage can be just decided. Value does not matter.
 #define IDLE_TASK_NAME "Idle"
 #define MODULATING_TASK_NAME "Modulating"
 
@@ -96,12 +96,18 @@ static TaskHandle_t tStateHandle;
  * Semaphore guarding the modulationConfig struct.
  */
 SemaphoreHandle_t modulationConfSemaphore;
-static char MODE = IDLE;
 
 /*
  * Semaphore guarding the pidConfig struct
  */
 SemaphoreHandle_t pidConfSemaphore;
+
+/*
+ * Semaphore guarding the MODE and modeChanged
+ */
+static char MODE = IDLE;
+char modeChanged;
+SemaphoreHandle_t modeSemaphore;
 
 PID_CONFIG_T pidConfig = { 0, 0, 0 };
 MODULATION_CONFIG_T modulationConfig = { 0, 50, 0 };
@@ -140,13 +146,25 @@ int init() {
 	}
 
 	/*
-	 * Create semaphore
+	 * Create semaphores
 	 */
 	modulationConfSemaphore = xSemaphoreCreateBinary();
 	if (modulationConfSemaphore == NULL) {
 		// TODO Handle failure in semaphore creation
 	} else {
 		xSemaphoreGive(modulationConfSemaphore);
+	}
+	pidConfSemaphore = xSemaphoreCreateBinary();
+	if (pidConfSemaphore == NULL) {
+		// TODO handle failure in semaphore creation
+	} else {
+		xSemaphoreGive(pidConfSemaphore);
+	}
+	modeSemaphore = xSemaphoreCreateBinary();
+	if (modeSemaphore == NULL) {
+		// TODO handle failure in semaphore creation
+	} else {
+		xSemaphoreGive(modeSemaphore);
 	}
 
 	return Status;
@@ -179,7 +197,7 @@ static void tStateControl(void *pvParameters) {
 	char xStatus = 0;
 	unsigned char modeCounter = 0; // 0-255 with overflow
 	MODE = IDLE;
-	char modeChanged = 1;
+	modeChanged = 1;
 
 	while (1) {
 		// Receive switch value changes through queue.
@@ -188,15 +206,30 @@ static void tStateControl(void *pvParameters) {
 
 		// mode switching is always possible
 		if (input_statuses.bt0) {
-			modeCounter++;
-			MODE = modeCounter % MAX_STATES; // limit mode to 2
-			modeChanged = 1;
+			// Check if mode semaphore exists
+			if (modeSemaphore == NULL) {
+				vTaskDelay(x100ms);
+				return;
+			}
+
+			if ( xSemaphoreTake( modeSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+				/* We were able to obtain the semaphore and can now access the
+				 shared resource. */
+				modeCounter++;
+				MODE = modeCounter % MAX_STATES; // limit mode to 2
+				modeChanged = 1;
+				xSemaphoreGive(modeSemaphore);
+			} else {
+				/* We could not obtain the semaphore and can therefore not access
+				 * the shared resource safely.
+				 */
+				xil_printf("Unable to change mode. Resource is busy.");
+			}
 			// Giving some time for task loops to exit before starting new tasks.
 			// Tasks must exit within this time.
 			vTaskDelay(x1second);
 			xil_printf("Mode changed to: %d \n", MODE);
 		}
-
 		// display current mode with the green LEDs too
 		if (modeChanged) {
 			set_led(1 << MODE);
@@ -234,8 +267,24 @@ static void tStateControl(void *pvParameters) {
 		default:
 			xil_printf("Unknown state reached. \n");
 		}
+		// Check if mode semaphore exists
+		if (modeSemaphore == NULL) {
+			vTaskDelay(x100ms);
+			return;
+		}
 
-		modeChanged = 0;
+		if ( xSemaphoreTake( modeSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+			/* We were able to obtain the semaphore and can now access the
+			 shared resource. */
+			modeChanged = 0;
+			xSemaphoreGive(modeSemaphore);
+		} else {
+			/* We could not obtain the semaphore and can therefore not access
+			 * the shared resource safely.
+			 */
+			xil_printf("Unable to change mode. Resource is busy.");
+		}
+
 	}
 
 }
