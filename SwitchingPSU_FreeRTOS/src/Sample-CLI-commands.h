@@ -348,8 +348,7 @@ static BaseType_t prvStateCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 
 	// Check if mode semaphore exists
 	if (modeSemaphore == NULL) {
-		vTaskDelay(x100ms);
-		return;
+		return pdFALSE;
 	}
 
 	/*

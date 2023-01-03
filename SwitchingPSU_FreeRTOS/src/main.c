@@ -105,7 +105,7 @@ SemaphoreHandle_t pidConfSemaphore;
 /*
  * Semaphore guarding the MODE and modeChanged
  */
-static char MODE = IDLE;
+char MODE = IDLE;
 char modeChanged;
 SemaphoreHandle_t modeSemaphore;
 
@@ -209,8 +209,8 @@ static void tStateControl(void *pvParameters) {
 		if (input_statuses.bt0) {
 			// Check if mode semaphore exists
 			if (modeSemaphore == NULL) {
-				vTaskDelay(x100ms);
-				return;
+				vTaskDelay(ms100);
+				continue;
 			}
 
 			if ( xSemaphoreTake( modeSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
@@ -270,8 +270,8 @@ static void tStateControl(void *pvParameters) {
 		}
 		// Check if mode semaphore exists
 		if (modeSemaphore == NULL) {
-			vTaskDelay(x100ms);
-			return;
+			vTaskDelay(ms100);
+			continue;
 		}
 
 		if ( xSemaphoreTake( modeSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
@@ -315,7 +315,7 @@ static void tIdle(void *pvParameters) {
 static void ConfigurePID(INPUT_STATUS_T *inputs,
 		unsigned char *parameter_select) {
 	// Check if pid conf semaphore exists and can be taken
-	if (pidConfSemaphore == NULL
+	if (pidConfSemaphore != NULL
 			&& xSemaphoreTake( pidConfSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
 		/* We were able to obtain the semaphore and can now access the
 		 shared resource. */

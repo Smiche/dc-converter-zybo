@@ -11,7 +11,10 @@ extern SemaphoreHandle_t modulationConfSemaphore;
  * Semaphore guarding the pidConfig struct
  */
 extern SemaphoreHandle_t pidConfSemaphore;
+extern SemaphoreHandle_t modeSemaphore;
 
 extern PID_CONFIG_T pidConfig;
 extern MODULATION_CONFIG_T modulationConfig;
+extern char MODE;
+extern char modeChanged;
 #endif /* TEST_H__*/
