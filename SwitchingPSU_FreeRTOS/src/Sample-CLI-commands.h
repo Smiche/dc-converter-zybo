@@ -355,8 +355,8 @@ static BaseType_t prvStateCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 	 * Change state according to the given parameter
 	 * State parameters are idle, conf, modulate
 	 */
-	if ((int) pcStateParameter == 0 || (int) pcStateParameter == 1
-			|| (int) pcStateParameter == 2) {
+	if (*pcStateParameter == '0' || *pcStateParameter == '1'
+			|| *pcStateParameter == '2') {
 		/*
 		 * TODO ready for test: handle these separately with a semaphore used in the tStateControl task.
 		 * Should make a separate struct for configuration from console.
@@ -364,7 +364,7 @@ static BaseType_t prvStateCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		if ( xSemaphoreTake( modeSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
 			/* We were able to obtain the semaphore and can now access the
 			 shared resource. */
-			MODE = (int) pcStateParameter;
+			MODE = (int) (*pcStateParameter) - 48;
 			modeChanged = 1;
 			xSemaphoreGive(modeSemaphore);
 		} else {
