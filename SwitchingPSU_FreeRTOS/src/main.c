@@ -108,8 +108,9 @@ SemaphoreHandle_t pidConfSemaphore;
 char MODE = IDLE;
 char modeChanged;
 SemaphoreHandle_t modeSemaphore;
+SemaphoreHandle_t pidConfButtonSemaphore;
 
-PID_CONFIG_T pidConfig = { 0, 0, 0 };
+PID_CONFIG_T pidConfig = { 8.2258, 0.00009, 0.0000225 };
 MODULATION_CONFIG_T modulationConfig = { 0, 50, 0 };
 
 int init() {
@@ -166,6 +167,12 @@ int init() {
 	} else {
 		xSemaphoreGive(modeSemaphore);
 	}
+	pidConfButtonSemaphore = xSemaphoreCreateBinary();
+	if (pidConfButtonSemaphore == NULL) {
+		// TODO handle failure in semaphore creation
+	} else {
+		xSemaphoreGive(pidConfButtonSemaphore);
+	}
 
 	return Status;
 }
@@ -212,6 +219,10 @@ static void tStateControl(void *pvParameters) {
 				vTaskDelay(ms100);
 				continue;
 			}
+			if (pidConfButtonSemaphore == NULL) {
+				vTaskDelay(ms100);
+				continue;
+			}
 
 			if ( xSemaphoreTake( modeSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
 				/* We were able to obtain the semaphore and can now access the
@@ -225,6 +236,18 @@ static void tStateControl(void *pvParameters) {
 				 * the shared resource safely.
 				 */
 				xil_printf("Unable to change mode. Resource is busy.");
+			}
+			if(MODE == 1){
+				if ( xSemaphoreTake( pidConfButtonSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+					
+				} else {
+					
+					xil_printf("Unable to get semaphore for confbutton. Resource is busy.");
+				}
+			} else if (MODE == 2){
+
+				xSemaphoreGive(pidConfButtonSemaphore);
+				xil_printf("released \n");
 			}
 			// Giving some time for task loops to exit before starting new tasks.
 			// Tasks must exit within this time.
@@ -391,7 +414,7 @@ static void tModulate(void *pvParameters) {
 			// debug print, can be used to plot a graph from serial output
 			if (modulationConfig.debugModulation) {
 				char buf[16];
-				sprintf(buf, "$%.3f %.3f;", voltage, PID_out);
+				sprintf(buf, "$%.3f %.3f;", voltage, modulationConfig.voltageRef);
 				xil_printf(buf);
 			}
 
