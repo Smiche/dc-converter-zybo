@@ -223,7 +223,7 @@ static void tStateControl(void *pvParameters) {
 				vTaskDelay(ms100);
 				continue;
 			}
-			if (pidConfButtonSemaphore == NULL) {
+			if (ConfButtonSemaphore == NULL) {
 				vTaskDelay(ms100);
 				continue;
 			}
