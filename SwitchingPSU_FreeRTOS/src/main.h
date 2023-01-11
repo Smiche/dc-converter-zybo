@@ -12,6 +12,10 @@ extern SemaphoreHandle_t modulationConfSemaphore;
  */
 extern SemaphoreHandle_t pidConfSemaphore;
 extern SemaphoreHandle_t modeSemaphore;
+
+/*
+ * Semaphore preventing acces from console when entering config with buttons
+ */
 extern SemaphoreHandle_t ConfButtonSemaphore;
 
 extern PID_CONFIG_T pidConfig;
