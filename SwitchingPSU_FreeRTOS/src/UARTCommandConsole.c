@@ -134,14 +134,14 @@ xComPortHandle xPort;
 		INCLUDE_vTaskSuspend is not set to 1 - in which case portMAX_DELAY will
 		be a genuine block time rather than an infinite block time. */
 		while( xSerialGetChar( xPort, &cRxedChar, portMAX_DELAY ) != pdPASS );
-		if (pidConfButtonSemaphore == NULL) {
+		if (ConfButtonSemaphore == NULL) {
 			vTaskDelay(ms100);
 			continue;
 		}
 		/*
 		 * Checks if config mode was entered with buttons
 		 */
-		if ( xSemaphoreTake( pidConfButtonSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+		if ( xSemaphoreTake( ConfButtonSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
 			/* Ensure exclusive access to the UART Tx. */
 			if( xSemaphoreTake( xTxMutex, cmdMAX_MUTEX_WAIT ) == pdPASS )
 			{
@@ -224,7 +224,7 @@ xComPortHandle xPort;
 			/*
 			 * Was not in config mode using buttons. Releases semaphore
 			 */
-			xSemaphoreGive( pidConfButtonSemaphore );
+			xSemaphoreGive( ConfButtonSemaphore );
 		} else {
 			/*
 			 * Config mode was entered with buttons
