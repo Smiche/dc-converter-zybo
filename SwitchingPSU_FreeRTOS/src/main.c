@@ -108,7 +108,11 @@ SemaphoreHandle_t pidConfSemaphore;
 char MODE = IDLE;
 char modeChanged;
 SemaphoreHandle_t modeSemaphore;
-SemaphoreHandle_t pidConfButtonSemaphore;
+
+/*
+ * Semaphora preventing console command usage when entering config mode with buttons
+ */
+SemaphoreHandle_t ConfButtonSemaphore;
 
 PID_CONFIG_T pidConfig = { 8.2258, 0.00009, 0.0000225 };
 MODULATION_CONFIG_T modulationConfig = { 0, 50, 0 };
@@ -167,11 +171,11 @@ int init() {
 	} else {
 		xSemaphoreGive(modeSemaphore);
 	}
-	pidConfButtonSemaphore = xSemaphoreCreateBinary();
-	if (pidConfButtonSemaphore == NULL) {
+	ConfButtonSemaphore = xSemaphoreCreateBinary();
+	if (ConfButtonSemaphore == NULL) {
 		// TODO handle failure in semaphore creation
 	} else {
-		xSemaphoreGive(pidConfButtonSemaphore);
+		xSemaphoreGive(ConfButtonSemaphore);
 	}
 
 	return Status;
@@ -237,17 +241,21 @@ static void tStateControl(void *pvParameters) {
 				 */
 				xil_printf("Unable to change mode. Resource is busy.");
 			}
+			/*
+			 * Takes semaphore ConfButtonSemaphore if entering config with button
+			 */
 			if(MODE == 1){
-				if ( xSemaphoreTake( pidConfButtonSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+				if ( xSemaphoreTake( ConfButtonSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
 					
 				} else {
 					
-					xil_printf("Unable to get semaphore for confbutton. Resource is busy.");
+					xil_printf("Unable to get semaphore for config with button. Resource is busy.");
 				}
+			/*
+			 * Releases semaphore when exiting config with button
+			 */
 			} else if (MODE == 2){
-
-				xSemaphoreGive(pidConfButtonSemaphore);
-				xil_printf("released \n");
+				xSemaphoreGive(ConfButtonSemaphore);
 			}
 			// Giving some time for task loops to exit before starting new tasks.
 			// Tasks must exit within this time.
