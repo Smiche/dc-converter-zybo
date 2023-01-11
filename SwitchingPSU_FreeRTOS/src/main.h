@@ -12,7 +12,7 @@ extern SemaphoreHandle_t modulationConfSemaphore;
  */
 extern SemaphoreHandle_t pidConfSemaphore;
 extern SemaphoreHandle_t modeSemaphore;
-extern SemaphoreHandle_t pidConfButtonSemaphore;
+extern SemaphoreHandle_t ConfButtonSemaphore;
 
 extern PID_CONFIG_T pidConfig;
 extern MODULATION_CONFIG_T modulationConfig;
