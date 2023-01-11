@@ -138,6 +138,9 @@ xComPortHandle xPort;
 			vTaskDelay(ms100);
 			continue;
 		}
+		/*
+		 * Checks if config mode was entered with buttons
+		 */
 		if ( xSemaphoreTake( pidConfButtonSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
 			/* Ensure exclusive access to the UART Tx. */
 			if( xSemaphoreTake( xTxMutex, cmdMAX_MUTEX_WAIT ) == pdPASS )
@@ -218,9 +221,15 @@ xComPortHandle xPort;
 				/* Must ensure to give the mutex back. */
 				xSemaphoreGive( xTxMutex );
 				}
+			/*
+			 * Was not in config mode using buttons. Releases semaphore
+			 */
 			xSemaphoreGive( pidConfButtonSemaphore );
 		} else {
-			xil_printf("Unable to get semaphore for confbutton. Use buttons.");
+			/*
+			 * Config mode was entered with buttons
+			 */
+			xil_printf("Use buttons.\n");
 		}
 	}
 }
