@@ -96,8 +96,8 @@ static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 /*
  *
  */
-static BaseType_t prvSaturationCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
-		const char *pcCommandString);
+static BaseType_t prvSaturationCommand(char *pcWriteBuffer,
+		size_t xWriteBufferLen, const char *pcCommandString);
 
 /* --- Command initializations ---*/
 
@@ -361,7 +361,7 @@ static BaseType_t prvStateCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		 * TODO ready for test: handle these separately with a semaphore used in the tStateControl task.
 		 * Should make a separate struct for configuration from console.
 		 */
-		if ( xSemaphoreTake( modeSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+		if (xSemaphoreTake(modeSemaphore, (TickType_t) 50) == pdTRUE) {
 			/* We were able to obtain the semaphore and can now access the
 			 shared resource. */
 			MODE = (int) (*pcStateParameter) - 48;
@@ -373,7 +373,7 @@ static BaseType_t prvStateCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 			 */
 			xil_printf("Unable to change mode. Resource is busy.");
 		}
-
+		memset(pcWriteBuffer, 0x00, xWriteBufferLen);
 	} else {
 		/* Print unknown mode error  */
 		char err_msg[] = "Mode should be one of these: 0, 1, 2.\nUnknown mode: ";
@@ -402,6 +402,7 @@ static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 	pcPIDvalParameter = FreeRTOS_CLIGetParameter(pcCommandString, 2,
 			&xParameter2StringLength);
 
+	char pidKey[] = { pcPIDkeyParameter[0], pcPIDkeyParameter[1], '\0' };
 	/*
 	 * TODO ready for test: handle these separately with a semaphore used in the tStateControl task.
 	 * Should make a separate struct for configuration from console.
@@ -412,21 +413,23 @@ static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		return;
 	}
 
-	if ( xSemaphoreTake( pidConfSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
-			/* We were able to obtain the semaphore and can now access the
-			 shared resource. */
+	if (xSemaphoreTake(pidConfSemaphore, (TickType_t) 50) == pdTRUE) {
+		/* We were able to obtain the semaphore and can now access the
+		 shared resource. */
 
-		if ((strcmp(pcPIDkeyParameter, "Ki") == 0) && ((int) pcPIDvalParameter)) {
-			pidConfig.Ki = (int) pcPIDvalParameter;
-		} else if ((strcmp(pcPIDkeyParameter, "Kd") == 0) && ((int) pcPIDvalParameter)) {
-			pidConfig.Kd = (int) pcPIDvalParameter;
-		} else if ((strcmp(pcPIDkeyParameter, "Kp") == 0) && ((int) pcPIDvalParameter)) {
-			pidConfig.Kp = (int) pcPIDvalParameter;
-		}else {
+		if ((strcmp(pidKey, "Ki") == 0) && pcPIDvalParameter) {
+			pidConfig.Ki = atof(pcPIDvalParameter);
+		} else if ((strcmp(pidKey, "Kd") == 0) && pcPIDvalParameter) {
+			pidConfig.Kd = atof(pcPIDvalParameter);
+		} else if ((strcmp(pidKey, "Kp") == 0) && pcPIDvalParameter) {
+			pidConfig.Kp = atof(pcPIDvalParameter);
+		} else {
 			// Value not recognized, fail.
 			memset(pcWriteBuffer, 0x00, xWriteBufferLen);
-			strncat(pcWriteBuffer, "Unable to change pid config. Unknown parameters.\r\n",
-			strlen("Unable to change pid config. Unknown parameters.\r\n"));
+			strncat(pcWriteBuffer,
+					"Unable to change pid config. Unknown parameters.\r\n",
+					strlen(
+							"Unable to change pid config. Unknown parameters.\r\n"));
 		}
 		xSemaphoreGive(pidConfSemaphore);
 	} else {
@@ -434,8 +437,9 @@ static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		 * the shared resource safely.
 		 */
 		memset(pcWriteBuffer, 0x00, xWriteBufferLen);
-		strncat(pcWriteBuffer, "Unable to change pid config. Resource is busy.\r\n",
-		strlen("Unable to change pid config. Resource is busy.\r\n"));
+		strncat(pcWriteBuffer,
+				"Unable to change pid config. Resource is busy.\r\n",
+				strlen("Unable to change pid config. Resource is busy.\r\n"));
 	}
 	return pdFALSE;
 }
@@ -461,7 +465,7 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		return;
 	}
 
-	if ( xSemaphoreTake( modulationConfSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+	if (xSemaphoreTake(modulationConfSemaphore, (TickType_t) 50) == pdTRUE) {
 		/* We were able to obtain the semaphore and can now access the
 		 shared resource. */
 
@@ -476,8 +480,10 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		} else {
 			// Value not recognized, fail.
 			memset(pcWriteBuffer, 0x00, xWriteBufferLen);
-			strncat(pcWriteBuffer, "Unable to change modulation config. Unknown parameters.\r\n",
-			strlen("Unable to change modulation config. Unknown parameters.\r\n"));
+			strncat(pcWriteBuffer,
+					"Unable to change modulation config. Unknown parameters.\r\n",
+					strlen(
+							"Unable to change modulation config. Unknown parameters.\r\n"));
 		}
 
 		/* Release semaphore */
@@ -487,8 +493,10 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		 * the shared resource safely.
 		 */
 		memset(pcWriteBuffer, 0x00, xWriteBufferLen);
-		strncat(pcWriteBuffer, "Unable to change modulation config. Resource is busy.\r\n",
-				strlen("Unable to change modulation config. Resource is busy.\r\n"));
+		strncat(pcWriteBuffer,
+				"Unable to change modulation config. Resource is busy.\r\n",
+				strlen(
+						"Unable to change modulation config. Resource is busy.\r\n"));
 
 	}
 	return pdFALSE;
@@ -497,8 +505,8 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 /*
  * Console command for saturation change
  */
-static BaseType_t prvSaturationCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
-		const char *pcCommandString) {
+static BaseType_t prvSaturationCommand(char *pcWriteBuffer,
+		size_t xWriteBufferLen, const char *pcCommandString) {
 	char *pcSaturationParameter;
 	BaseType_t xParameterStringLength;
 
@@ -515,7 +523,7 @@ static BaseType_t prvSaturationCommand(char *pcWriteBuffer, size_t xWriteBufferL
 		return;
 	}
 
-	if ( xSemaphoreTake( modulationConfSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
+	if (xSemaphoreTake(modulationConfSemaphore, (TickType_t) 50) == pdTRUE) {
 		/* We were able to obtain the semaphore and can now access the
 		 shared resource. */
 
@@ -530,8 +538,10 @@ static BaseType_t prvSaturationCommand(char *pcWriteBuffer, size_t xWriteBufferL
 		} else {
 			// Value not recognized, fail.
 			memset(pcWriteBuffer, 0x00, xWriteBufferLen);
-			strncat(pcWriteBuffer, "Unable to change modulation config. Unknown parameters.\r\n",
-			strlen("Unable to change modulation config. Unknown parameters.\r\n"));
+			strncat(pcWriteBuffer,
+					"Unable to change modulation config. Unknown parameters.\r\n",
+					strlen(
+							"Unable to change modulation config. Unknown parameters.\r\n"));
 		}
 
 		/* Release semaphore */
@@ -541,8 +551,10 @@ static BaseType_t prvSaturationCommand(char *pcWriteBuffer, size_t xWriteBufferL
 		 * the shared resource safely.
 		 */
 		memset(pcWriteBuffer, 0x00, xWriteBufferLen);
-		strncat(pcWriteBuffer, "Unable to change modulation config. Resource is busy.\r\n",
-		strlen("Unable to change modulation config. Resource is busy.\r\n"));
+		strncat(pcWriteBuffer,
+				"Unable to change modulation config. Resource is busy.\r\n",
+				strlen(
+						"Unable to change modulation config. Resource is busy.\r\n"));
 
 	}
 	return pdFALSE;
