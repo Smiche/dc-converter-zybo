@@ -116,7 +116,7 @@ SemaphoreHandle_t modeSemaphore;
 SemaphoreHandle_t ConfButtonSemaphore;
 
 PID_CONFIG_T pidConfig = { 2, 0.05, 0.5 };
-MODULATION_CONFIG_T modulationConfig = { 0, 50, 0 };
+MODULATION_CONFIG_T modulationConfig = { 0, 250, 0 };
 
 int init() {
 	int Status;
