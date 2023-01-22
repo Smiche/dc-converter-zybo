@@ -395,6 +395,7 @@ static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 	char *pcPIDkeyParameter;
 	char *pcPIDvalParameter;
 	BaseType_t xParameter1StringLength, xParameter2StringLength;
+	char pidChanged = pdTRUE;
 
 	pcPIDkeyParameter = FreeRTOS_CLIGetParameter(pcCommandString, 1,
 			&xParameter1StringLength);
@@ -430,7 +431,19 @@ static BaseType_t prvPIDCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 					"Unable to change pid config. Unknown parameters.\r\n",
 					strlen(
 							"Unable to change pid config. Unknown parameters.\r\n"));
+			pidChanged = pdFALSE;
 		}
+
+		if (pidChanged == pdTRUE) {
+			char pid_conf_msg[86];
+			sprintf(pid_conf_msg,
+					"PID Config changed: Kp: %.6f Ki: %.6f Kd: %.6f \r\n",
+					pidConfig.Kp, pidConfig.Ki, pidConfig.Kd);
+			memset(pcWriteBuffer, 0x00, xWriteBufferLen);
+			strncat(pcWriteBuffer, (char *) pid_conf_msg,
+					(size_t) pid_conf_msg);
+		}
+
 		xSemaphoreGive(pidConfSemaphore);
 	} else {
 		/* We could not obtain the semaphore and can therefore not access
@@ -469,8 +482,8 @@ static BaseType_t prvVoltageCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 		/* We were able to obtain the semaphore and can now access the
 		 shared resource. */
 
-		if ((int) pcVoltageParameter) {
-			modulationConfig.voltageRef = (int) pcVoltageParameter;
+		if (pcVoltageParameter) {
+			modulationConfig.voltageRef =  atof(pcVoltageParameter);
 
 			/* Print the new mode. */
 			memset(pcWriteBuffer, 0x00, xWriteBufferLen);

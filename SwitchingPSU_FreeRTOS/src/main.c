@@ -59,6 +59,7 @@
 #define DELAY_10_SECONDS	10000UL
 #define DELAY_1_SECOND		1000UL
 #define DELAY_100_MS		100UL
+#define DELAY_10_MS			10UL
 #define TIMER_CHECK_THRESHOLD	9
 #define mainUART_COMMAND_CONSOLE_STACK_SIZE	( configMINIMAL_STACK_SIZE * 3UL )
 #define mainUART_COMMAND_CONSOLE_TASK_PRIORITY	( tskIDLE_PRIORITY )
@@ -114,7 +115,7 @@ SemaphoreHandle_t modeSemaphore;
  */
 SemaphoreHandle_t ConfButtonSemaphore;
 
-PID_CONFIG_T pidConfig = { 8.2258, 0.00009, 0.0000225 };
+PID_CONFIG_T pidConfig = { 2, 0.05, 0.5 };
 MODULATION_CONFIG_T modulationConfig = { 0, 50, 0 };
 
 int init() {
@@ -244,17 +245,19 @@ static void tStateControl(void *pvParameters) {
 			/*
 			 * Takes semaphore ConfButtonSemaphore if entering config with button
 			 */
-			if(MODE == 1){
-				if ( xSemaphoreTake( ConfButtonSemaphore, ( TickType_t ) 50 ) == pdTRUE) {
-					
+			if (MODE == 1) {
+				if ( xSemaphoreTake(ConfButtonSemaphore,
+						(TickType_t ) 50) == pdTRUE) {
+
 				} else {
-					
-					xil_printf("Unable to get semaphore for config with button. Resource is busy.");
+
+					xil_printf(
+							"Unable to get semaphore for config with button. Resource is busy.");
 				}
-			/*
-			 * Releases semaphore when exiting config with button
-			 */
-			} else if (MODE == 2){
+				/*
+				 * Releases semaphore when exiting config with button
+				 */
+			} else if (MODE == 2) {
 				xSemaphoreGive(ConfButtonSemaphore);
 			}
 			// Giving some time for task loops to exit before starting new tasks.
@@ -282,6 +285,15 @@ static void tStateControl(void *pvParameters) {
 				ConfigurePID(&input_statuses, &parameter_select);
 				vTaskDelay(ms50);
 			}
+
+			if (modeChanged) {
+				char buf[86];
+				sprintf(buf,
+						"PID Config changed: Kp: %.6f Ki: %.6f Kd: %.6f \n",
+						pidConfig.Kp, pidConfig.Ki, pidConfig.Kd);
+				xil_printf(buf);
+			}
+
 			break;
 		case MODULATING:
 			// Check if any input is present, then update modulation config
@@ -394,6 +406,7 @@ static void ConfigurePID(INPUT_STATUS_T *inputs,
 static void tModulate(void *pvParameters) {
 	const TickType_t xHalfSecond = pdMS_TO_TICKS(500UL);
 	const TickType_t x100ms = pdMS_TO_TICKS(DELAY_100_MS);
+	const TickType_t x10ms = pdMS_TO_TICKS(DELAY_10_MS);
 
 	float PID_out = 0;
 	float voltage = 0;
@@ -422,13 +435,14 @@ static void tModulate(void *pvParameters) {
 			// debug print, can be used to plot a graph from serial output
 			if (modulationConfig.debugModulation) {
 				char buf[16];
-				sprintf(buf, "$%.3f %.3f;", voltage, modulationConfig.voltageRef);
+				sprintf(buf, "$%.3f %.3f;", voltage,
+						modulationConfig.voltageRef);
 				xil_printf(buf);
 			}
 
 			// Show voltage output as a percentage of max voltage
 			led_set_duty(RED, (voltage / (float) MAX_VOLTAGE) * 100);
-			vTaskDelay(x100ms);
+			vTaskDelay(x10ms);
 		} else {
 			xil_printf(
 					"Unable to change modulation config. Resource is busy. Will retry in half a second.");
